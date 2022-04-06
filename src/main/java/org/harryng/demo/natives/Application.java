@@ -1,14 +1,16 @@
 package org.harryng.demo.natives;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 public class Application {
 
-    static Logger logger = LoggerFactory.getLogger(Application.class);
+    static System.Logger logger = System.getLogger(Application.class.getCanonicalName());
+//    static Logger logger = LoggerFactory.getLogger(Application.class);
 
-    public static void main(String[] args){
-        logger.info("=====");
+    public static void main(String[] args) {
+        logger.log(System.Logger.Level.INFO, "=====");
+//        logger.info("=====");
         Db db = new Db();
         db.selectOneDb();
     }

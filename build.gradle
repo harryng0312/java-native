@@ -6,17 +6,17 @@ plugins {
 group 'org.harryng.demo.natives'
 version '1.0-SNAPSHOT'
 
-java.sourceCompatibility = JavaVersion.VERSION_11
-java.targetCompatibility = JavaVersion.VERSION_11
+java.sourceCompatibility = JavaVersion.VERSION_17
+java.targetCompatibility = JavaVersion.VERSION_17
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
-    implementation "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-    implementation "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+//    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+//    implementation "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+//    implementation "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
 
     implementation "com.h2database:h2:${h2Version}"
 
