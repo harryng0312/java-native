@@ -8,6 +8,8 @@ public class Application {
     static Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static void main(String[] args){
-        logger.info("hello world");
+        logger.info("=====");
+        Db db = new Db();
+        db.selectOneDb();
     }
 }
