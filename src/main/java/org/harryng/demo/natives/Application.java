@@ -3,6 +3,7 @@ package org.harryng.demo.natives;
 //import org.slf4j.Logger;
 //import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -18,10 +19,24 @@ public class Application {
         insertDbMethod.invoke(db);
     }
 
-    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        logger.log(System.Logger.Level.INFO, "=====" + ResourcesUtil.getProperty("db.jdbc.driver"));
+    public static void accessResource(){
+        logger.log(System.Logger.Level.INFO, "Resource properties:" + ResourcesUtil.getProperty("db.jdbc.driver"));
+    }
+
+    public static void accessDb(){
+        var db = new Db();
+        db.selectOneDb();
+    }
+
+    public static void accessFile() throws IOException {
+        var fileAccess = new FileAccession();
+        fileAccess.writeFile();
+        fileAccess.readFile();
+    }
+
+    public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
+        logger.log(System.Logger.Level.INFO, "=====");
 //        logger.info("=====");
-        Db db = new Db();
-        db.insertDb();
+
     }
 }

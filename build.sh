@@ -13,7 +13,7 @@ native-image \
 -H:-ParseOnce \
 -J--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
 -J--add-opens=java.base/java.text=ALL-UNNAMED \
---gc=G1 \
+--gc=serial \
 -H:InitialCollectionPolicy=com.oracle.svm.core.genscavenge.CollectionPolicy\$BySpaceAndTime \
 -H:+JNI \
 -H:+AllowFoldMethods \
