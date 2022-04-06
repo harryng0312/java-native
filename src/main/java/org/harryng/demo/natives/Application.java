@@ -9,9 +9,9 @@ public class Application {
 //    static Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static void main(String[] args) {
-        logger.log(System.Logger.Level.INFO, "=====");
+        logger.log(System.Logger.Level.INFO, "=====" + ResourcesUtil.getProperty("db.jdbc.driver"));
 //        logger.info("=====");
-        Db db = new Db();
-        db.selectOneDb();
+//        Db db = new Db();
+//        db.selectOneDb();
     }
 }

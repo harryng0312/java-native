@@ -25,4 +25,5 @@ native-image \
 -H:NativeLinkerOption=-no-pie \
 -H:-UseServiceLoaderFeature \
 -H:+StackTrace java-native-1.0-SNAPSHOT-all \
+-H:ResourceConfigurationFiles=../resource-config.json \
 -jar ./libs/java-native-1.0-SNAPSHOT-all.jar

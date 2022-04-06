@@ -2,7 +2,7 @@
   "resources": {
     "includes": [
       {
-        "pattern": "*.properties"
+        "pattern": "[a-zA-Z0-9]+\\.properties"
       }
     ],
     "excludes": []
