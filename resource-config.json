@@ -3,6 +3,9 @@
     "includes": [
       {
         "pattern": "[a-zA-Z0-9]+\\.properties"
+      },
+      {
+        "pattern": "[a-zA-Z0-9]+\\.xml"
       }
     ],
     "excludes": []

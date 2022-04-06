@@ -25,7 +25,7 @@ public class Db {
     }
 
     public void insertDb(){
-
+        logger.log(System.Logger.Level.INFO, "insert into db");
     }
 
     public void updateDb(){
