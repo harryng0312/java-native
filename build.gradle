@@ -18,6 +18,9 @@ dependencies {
 //    implementation "org.apache.logging.log4j:log4j-core:${log4jVersion}"
 //    implementation "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
 
+    implementation "io.vertx:vertx-core:${vertxVersion}"
+    implementation "io.vertx:vertx-web:${vertxVersion}"
+
     implementation "com.h2database:h2:${h2Version}"
 
     implementation "org.bouncycastle:bcprov-jdk15on:${bcVersion}"
