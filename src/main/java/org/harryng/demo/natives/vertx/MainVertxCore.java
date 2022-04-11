@@ -3,12 +3,11 @@ package org.harryng.demo.natives.vertx;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
-import org.harryng.demo.natives.Application;
 
 import java.nio.charset.StandardCharsets;
 
 public class MainVertxCore {
-    static System.Logger logger = System.getLogger(Application.class.getCanonicalName());
+    static System.Logger logger = System.getLogger(MainVertxCore.class.getCanonicalName());
     Vertx vertx = null;
 
     private void initVertx(){

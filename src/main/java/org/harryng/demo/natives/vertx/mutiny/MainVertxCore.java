@@ -1,9 +1,13 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.mutiny.core.Vertx;
-import org.harryng.demo.natives.Application;
+import io.vertx.mutiny.core.buffer.Buffer;
+import io.vertx.mutiny.core.file.AsyncFile;
+import io.vertx.mutiny.core.streams.Pump;
 
 import java.nio.charset.StandardCharsets;
 
@@ -11,19 +15,19 @@ public class MainVertxCore {
     static System.Logger logger = System.getLogger(MainVertxCore.class.getCanonicalName());
     Vertx vertx = null;
 
-    private void initVertx(){
+    private void initVertx() {
         var vertxOpts = new VertxOptions().setWorkerPoolSize(40);
         vertx = Vertx.vertx(vertxOpts);
     }
 
-    public Vertx getVertx(){
-        if(vertx == null) {
+    public Vertx getVertx() {
+        if (vertx == null) {
             initVertx();
         }
         return vertx;
     }
 
-    public void readFile(){
+    public void readFile() {
         getVertx().fileSystem()
                 .readFile("./files/test.txt")
                 .map(buffer -> {
@@ -37,7 +41,7 @@ public class MainVertxCore {
                 });
     }
 
-    public void readBigFile(){
+    public void readBigFile() {
         getVertx().fileSystem().open("./files/test.txt", new OpenOptions()
                         .setRead(true).setWrite(false).setAppend(false).setCreate(false))
                 .map(asyncFile -> {
@@ -54,10 +58,42 @@ public class MainVertxCore {
                 });
     }
 
-    public static void main(String[] args){
-        var app = new org.harryng.demo.natives.vertx.MainVertxCore();
-        app.readBigFile();
+    public void writeFile() {
+        final var path = "files/test2.txt";
+        final var data = "this is string data big";
+        getVertx().fileSystem()
+                .exists(path)
+                .flatMap(existed -> {
+                    if(!existed) {
+                        getVertx().fileSystem().createFile(path);
+                    }
+                    return Uni.createFrom().voidItem();
+                })
+                .flatMap(v ->
+                    getVertx().fileSystem()
+                        .open(path, new OpenOptions()
+                            .setWrite(true))
+                )
+                .flatMap(asyncFile -> {
+                    var buffer = Buffer.buffer(data, "utf-8");
+                    return asyncFile.write(buffer).map(itm -> asyncFile);
+//                    var pump = Pump.pump(, asyncFile);
+//                    return asyncFile;
+                })
+                .map(AsyncFile::flushAndForget)
+                .map(asyncFile -> {
+                    asyncFile.closeAndForget();
+                    return Uni.createFrom().voidItem();
+                })
+                .onFailure().transform(Unchecked.function(err -> err))
+                .await().indefinitely();
 
-        app.getVertx().close().result();
+    }
+
+    public static void main(String[] args) {
+        var app = new MainVertxCore();
+        app.writeFile();
+
+        app.getVertx().close().await().indefinitely();
     }
 }
