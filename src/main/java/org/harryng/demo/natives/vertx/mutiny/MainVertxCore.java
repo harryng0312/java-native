@@ -76,14 +76,16 @@ public class MainVertxCore {
                 )
                 .flatMap(asyncFile -> {
                     var buffer = Buffer.buffer(data, "utf-8");
-                    return asyncFile.write(buffer).map(itm -> asyncFile);
+                    return asyncFile.write(buffer).map(v -> asyncFile);
 //                    var pump = Pump.pump(, asyncFile);
 //                    return asyncFile;
                 })
+//                .flatMap(asyncFile -> asyncFile.flush().map(v -> asyncFile))
+//                .flatMap(AsyncFile::close)
                 .map(AsyncFile::flushAndForget)
                 .map(asyncFile -> {
                     asyncFile.closeAndForget();
-                    return Uni.createFrom().voidItem();
+                    return asyncFile;
                 })
                 .onFailure().transform(Unchecked.function(err -> err))
                 .await().indefinitely();
