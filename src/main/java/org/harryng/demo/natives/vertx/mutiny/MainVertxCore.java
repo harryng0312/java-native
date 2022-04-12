@@ -132,14 +132,6 @@ public class MainVertxCore {
                         getVertx().fileSystem().createFile(destPath)
                         : getVertx().fileSystem().delete(destPath)))
                 .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
-//                .map(srcFile -> srcFile.setReadBufferSize(buffSize)
-//                        .handler(buffer -> {
-//                            logger.log(System.Logger.Level.INFO, "read buffer size: " + buffer.length());
-//                        })
-//                        .endHandler(() -> {
-//                            logger.log(System.Logger.Level.INFO, "Read file finished!");
-//                            srcFile.closeAndForget();
-//                        }))
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
                     srcFile.setReadBufferSize(buffSize)
                             .handler(buffer -> {
@@ -151,16 +143,19 @@ public class MainVertxCore {
                                 srcFile.closeAndForget();
                             });
                 }))
-                .flatMap(buffer -> {
+                .onItem().transformToMultiAndConcatenate(buffer -> {
                     return getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                             .toMulti()
                             .flatMap(destFile -> {
                                 return destFile.write(buffer)
 //                                        .map(v -> destFile.flushAndForget())
-                                        .toMulti().map(v -> destFile);
+                                        .toMulti()
+                                        .map(v -> destFile);
                             });
                 })
+//                .merge()
                 .toUni()
+//                .flatMap(itm -> itm)
                 .map(destFile -> {
                     logger.log(System.Logger.Level.INFO,"Dest file size: " + destFile.sizeBlocking());
 //                    destFile.closeAndForget();
