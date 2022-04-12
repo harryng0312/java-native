@@ -1,5 +1,6 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
@@ -7,7 +8,6 @@ import io.vertx.core.file.OpenOptions;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.file.AsyncFile;
-import io.vertx.mutiny.core.streams.Pump;
 
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +17,7 @@ public class MainVertxCore {
     Vertx vertx = null;
 
     private void initVertx() {
-        var vertxOpts = new VertxOptions().setWorkerPoolSize(40);
+        var vertxOpts = new VertxOptions();
         vertx = Vertx.vertx(vertxOpts);
     }
 
@@ -43,21 +43,37 @@ public class MainVertxCore {
     }
 
     public void readBigFile() {
-        getVertx().fileSystem().open("files/test2.txt", new OpenOptions()
-                        .setRead(true).setWrite(false).setAppend(false).setCreate(false))
+        var srcPath = "files/BadgeChainDemo.mp4";
+//        var srcPath = "files/test2.txt";
+        int buffSize = 1024 * 1024;
+        getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))
                 .map(asyncFile -> {
-                    asyncFile.setReadBufferSize(16)
+                    logger.log(System.Logger.Level.INFO, "file read");
+                    return asyncFile.setReadBufferSize(buffSize)
                             .handler(buffer -> {
-                                logger.log(System.Logger.Level.INFO, new String(buffer.getBytes(), StandardCharsets.UTF_8));
+                                logger.log(System.Logger.Level.INFO, "Buffsize: " + buffer.length());
                             })
-                            .endHandler(() -> logger.log(System.Logger.Level.INFO, "end file!"));
-                    return asyncFile;
+//                            .endHandler(() -> logger.log(System.Logger.Level.INFO, "end file!"))
+                            .endHandler(() -> {
+                                logger.log(System.Logger.Level.INFO, "end file!");
+                                asyncFile.closeAndForget();
+                            });
+//                    return asyncFile;
                 })
+//                .flatMap(asyncFile -> {
+//                    logger.log(System.Logger.Level.INFO, "file closed");
+//                    return asyncFile.close();
+//                })
                 .onFailure().transform(err -> {
                     logger.log(System.Logger.Level.ERROR, "", err);
                     return err;
                 })
-                .await().indefinitely();
+                .subscribe().with(
+                        item -> {
+                        },//logger.log(System.Logger.Level.INFO, "subscribe: " + item),
+                        ex -> logger.log(System.Logger.Level.ERROR, "error: ", ex)
+                );
+//                .await().indefinitely();
     }
 
     public void writeFile() {
@@ -66,15 +82,15 @@ public class MainVertxCore {
         getVertx().fileSystem()
                 .exists(path)
                 .flatMap(existed -> {
-                    if(!existed) {
+                    if (!existed) {
                         getVertx().fileSystem().createFile(path);
                     }
                     return Uni.createFrom().voidItem();
                 })
                 .flatMap(v ->
-                    getVertx().fileSystem()
-                        .open(path, new OpenOptions()
-                            .setWrite(true))
+                        getVertx().fileSystem()
+                                .open(path, new OpenOptions()
+                                        .setWrite(true))
                 )
                 .flatMap(asyncFile -> {
                     var buffer = Buffer.buffer(data, "utf-8");
@@ -97,27 +113,66 @@ public class MainVertxCore {
     public void copyFile() {
         var srcPath = "files/BadgeChainDemo.mp4";
         var destPath = "files/BadgeChainDemo_1.mp4";
+        int buffSize = 1024 * 1024;
+        var tmpBuffer = Buffer.buffer(buffSize);
         getVertx().fileSystem()
                 .exists(srcPath)
                 .flatMap(Unchecked.function(srcPathExisting -> {
-                    if(srcPathExisting){
+                    if (srcPathExisting) {
                         return getVertx().fileSystem()
                                 .open(srcPath, new OpenOptions()
-                                .setCreate(false)
-                                .setRead(true));
+                                        .setCreate(false)
+                                        .setRead(true));
                     } else {
                         throw new FileNotFoundException(srcPath);
                     }
                 }))
                 .flatMap(Unchecked.function(srcAsyncFile -> getVertx().fileSystem().exists(destPath)))
-                .flatMap(Unchecked.function(destPathExisting -> {
-                    if(!destPathExisting){
-                        getVertx().fileSystem().createFile(destPath);
-                    }
-                    return Uni.createFrom().item(destPathExisting);
+                .flatMap(Unchecked.function(destPathExisting -> !destPathExisting ?
+                        getVertx().fileSystem().createFile(destPath)
+                        : getVertx().fileSystem().delete(destPath)))
+                .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
+//                .map(srcFile -> srcFile.setReadBufferSize(buffSize)
+//                        .handler(buffer -> {
+//                            logger.log(System.Logger.Level.INFO, "read buffer size: " + buffer.length());
+//                        })
+//                        .endHandler(() -> {
+//                            logger.log(System.Logger.Level.INFO, "Read file finished!");
+//                            srcFile.closeAndForget();
+//                        }))
+                .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
+                    srcFile.setReadBufferSize(buffSize)
+                            .handler(buffer -> {
+                                logger.log(System.Logger.Level.INFO, "read buffer size: " + buffer.length());
+                                multiEmitter.emit(buffer);
+                            })
+                            .endHandler(() -> {
+                                logger.log(System.Logger.Level.INFO, "Read file finished!");
+                                srcFile.closeAndForget();
+                            });
                 }))
-                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
-                .await().indefinitely();
+                .flatMap(buffer -> {
+                    return getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
+                            .toMulti()
+                            .flatMap(destFile -> {
+                                return destFile.write(buffer)
+//                                        .map(v -> destFile.flushAndForget())
+                                        .toMulti().map(v -> destFile);
+                            });
+                })
+                .toUni()
+                .map(destFile -> {
+                    logger.log(System.Logger.Level.INFO,"Dest file size: " + destFile.sizeBlocking());
+//                    destFile.closeAndForget();
+                    return destFile;
+                })
+                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
+                .subscribe().with(
+                        item -> logger.log(System.Logger.Level.INFO, "read size: " + item.sizeBlocking()),
+                        failure -> System.out.println("Failed with " + failure)//,
+//                        () -> System.out.println("Completed")
+                );
+
     }
 
     public static void main(String[] args) {
@@ -126,6 +181,14 @@ public class MainVertxCore {
 //        app.writeFile();
         app.copyFile();
 
-        app.getVertx().close().await().indefinitely();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                app.getVertx().close();
+            }
+        });
+//        app.getVertx().closeAndAwait();
+//                .subscribe().with(
+//                        item -> logger.log(System.Logger.Level.INFO, "vertx finished: " + item),
+//                        ex -> logger.log(System.Logger.Level.ERROR, "vertx error: ", ex));
     }
 }

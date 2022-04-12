@@ -22,6 +22,7 @@ dependencies {
     implementation "io.vertx:vertx-web:${vertxVersion}"
 
     implementation "io.smallrye.reactive:smallrye-mutiny-vertx-core:${smallryeVertxVersion}"
+    implementation "io.smallrye.reactive:smallrye-mutiny-vertx-runtime:${smallryeVertxVersion}"
     implementation "io.smallrye.reactive:smallrye-mutiny-vertx-web:${smallryeVertxVersion}"
 
     implementation "com.h2database:h2:${h2Version}"
