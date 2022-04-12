@@ -142,19 +142,21 @@ public class MainVertxCore {
                                     logger.log(System.Logger.Level.INFO, "Read file finished!");
                                     srcFile.closeAndForget();
                                 })))
-                .onItem().transformToMultiAndConcatenate(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
+                .onItem().transformToMultiAndConcatenate(
+                        buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                         .toMulti()
                         .flatMap(destFile ->
                                 destFile.write(buffer)
 //                                        .map(v -> destFile.flushAndForget())
                                         .toMulti()
+                                        .map(v -> destFile.flushAndForget())
                                         .map(v -> destFile)))
 //                .merge()
                 .toUni()
 //                .flatMap(itm -> itm)
                 .map(destFile -> {
                     logger.log(System.Logger.Level.INFO, "Dest file size: " + destFile.sizeBlocking());
-//                    destFile.closeAndForget();
+                    destFile.closeAndForget();
                     return destFile;
                 })
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
