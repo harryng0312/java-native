@@ -9,6 +9,7 @@ import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.file.AsyncFile;
 import io.vertx.mutiny.core.streams.Pump;
 
+import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 
 public class MainVertxCore {
@@ -42,10 +43,10 @@ public class MainVertxCore {
     }
 
     public void readBigFile() {
-        getVertx().fileSystem().open("./files/test.txt", new OpenOptions()
+        getVertx().fileSystem().open("files/test2.txt", new OpenOptions()
                         .setRead(true).setWrite(false).setAppend(false).setCreate(false))
                 .map(asyncFile -> {
-                    asyncFile.setReadBufferSize(256 * 1024)
+                    asyncFile.setReadBufferSize(16)
                             .handler(buffer -> {
                                 logger.log(System.Logger.Level.INFO, new String(buffer.getBytes(), StandardCharsets.UTF_8));
                             })
@@ -55,7 +56,8 @@ public class MainVertxCore {
                 .onFailure().transform(err -> {
                     logger.log(System.Logger.Level.ERROR, "", err);
                     return err;
-                });
+                })
+                .await().indefinitely();
     }
 
     public void writeFile() {
@@ -92,9 +94,37 @@ public class MainVertxCore {
 
     }
 
+    public void copyFile() {
+        var srcPath = "files/BadgeChainDemo.mp4";
+        var destPath = "files/BadgeChainDemo_1.mp4";
+        getVertx().fileSystem()
+                .exists(srcPath)
+                .flatMap(Unchecked.function(srcPathExisting -> {
+                    if(srcPathExisting){
+                        return getVertx().fileSystem()
+                                .open(srcPath, new OpenOptions()
+                                .setCreate(false)
+                                .setRead(true));
+                    } else {
+                        throw new FileNotFoundException(srcPath);
+                    }
+                }))
+                .flatMap(Unchecked.function(srcAsyncFile -> getVertx().fileSystem().exists(destPath)))
+                .flatMap(Unchecked.function(destPathExisting -> {
+                    if(!destPathExisting){
+                        getVertx().fileSystem().createFile(destPath);
+                    }
+                    return Uni.createFrom().item(destPathExisting);
+                }))
+                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
+                .await().indefinitely();
+    }
+
     public static void main(String[] args) {
         var app = new MainVertxCore();
-        app.writeFile();
+//        app.readBigFile();
+//        app.writeFile();
+        app.copyFile();
 
         app.getVertx().close().await().indefinitely();
     }
