@@ -33,6 +33,9 @@ public class NetServerVerticleTest {
                     .flatMap(v -> netSocket.end())
                     .flatMap(v -> netSocket.close());
 //        }).subscribe().with(itm -> {});
+        }).onFailure().transform(ex -> {
+            logger.log(System.Logger.Level.ERROR, "Ex:", ex);
+            return ex;
         });
         vertx.executeBlockingAndAwait(run);
     }
