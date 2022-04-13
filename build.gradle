@@ -19,7 +19,7 @@ dependencies {
 //    implementation "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
 
     implementation "io.vertx:vertx-core:${vertxVersion}"
-    implementation "io.vertx:vertx-web:${vertxVersion}"
+//    implementation "io.vertx:vertx-web:${vertxVersion}"
 
     implementation "io.smallrye.reactive:smallrye-mutiny-vertx-core:${smallryeVertxVersion}"
     implementation "io.smallrye.reactive:smallrye-mutiny-vertx-runtime:${smallryeVertxVersion}"

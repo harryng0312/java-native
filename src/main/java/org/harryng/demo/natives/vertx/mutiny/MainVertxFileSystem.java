@@ -2,6 +2,7 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.subscription.BackPressureStrategy;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
@@ -170,8 +171,9 @@ public class MainVertxFileSystem {
     }
 
     public void copyFileMulti2() {
-        var srcPath = "/mnt/working/downloads/film/Rat Disaster 2021 ViE 1080p WEB-DL DD2.0 H.264 (Thuyet Minh - Sub Viet).mkv";
-        var destPath = "files/testbig.mkv";
+//        var srcPath = "/mnt/working/downloads/film/Rat Disaster 2021 ViE 1080p WEB-DL DD2.0 H.264 (Thuyet Minh - Sub Viet).mkv";
+        var srcPath = "/mnt/working/downloads/film/Stay.Alive.2006.KSTE.avi";
+        var destPath = "files/testbig.avi";
         int buffSize = 1024 * 1024;
 
         var destIndex = new AtomicInteger();
@@ -203,7 +205,7 @@ public class MainVertxFileSystem {
                                 logger.log(System.Logger.Level.INFO, "Read file finished! " + srcIndex.intValue());
                                 srcFile.closeAndForget();
                             });
-                }))
+                }, buffSize * 16))
                 .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                         .toMulti()
                         .flatMap(destFile -> {
@@ -215,7 +217,7 @@ public class MainVertxFileSystem {
 //                                            .toMulti().map(v -> destFile);
                         }))
                 .onItem().transformToUniAndConcatenate(destFile -> {
-                    logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
+//                    logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
                     return Uni.createFrom().item(destFile);
                 })
                 .map(asyncFile -> {
@@ -224,8 +226,10 @@ public class MainVertxFileSystem {
                     return asyncFile;
                 })
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
-                .subscribe().with(item -> logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
-                        failure -> System.out.println("Failed with " + failure)//,
+                .subscribe().with(
+                        item -> {
+                        },//logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
+                        failure -> logger.log(System.Logger.Level.ERROR, "Failed with " + failure, failure)//,
 //                        () -> System.out.println("Completed")
                 );
     }
