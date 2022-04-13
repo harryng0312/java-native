@@ -1,5 +1,6 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.mutiny.core.Vertx;
 import org.junit.jupiter.api.*;
@@ -31,12 +32,13 @@ public class NetServerVerticleTest {
             logger.log(System.Logger.Level.INFO, "Client sent!");
             return netSocket.write("From client: hello server")
                     .flatMap(v -> netSocket.end())
-                    .flatMap(v -> netSocket.close());
+                    .map(v -> netSocket);
 //        }).subscribe().with(itm -> {});
         }).onFailure().transform(ex -> {
             logger.log(System.Logger.Level.ERROR, "Ex:", ex);
             return ex;
-        });
+        }).onItemOrFailure().transformToUni((netSocket, ex) -> netSocket.close());//.subscribe().with(itm->{});
+//        vertx.executeBlockingAndAwait(run);
         vertx.executeBlockingAndAwait(run);
     }
 }
