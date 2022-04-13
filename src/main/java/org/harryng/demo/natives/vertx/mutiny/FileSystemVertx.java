@@ -11,10 +11,8 @@ import io.vertx.mutiny.core.file.AsyncFile;
 
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.temporal.TemporalUnit;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FileSystemVertx {
     static System.Logger logger = System.getLogger(FileSystemVertx.class.getCanonicalName());
@@ -238,7 +236,10 @@ public class FileSystemVertx {
         var srcPath = "/mnt/working/downloads/film/Stay.Alive.2006.KSTE.avi";
         var destPath = "files/testbig.avi";
         int buffSize = 1024 * 1024;
-
+        int buffElement = 32;
+        AtomicInteger srcCount = new AtomicInteger(0);
+        AtomicInteger destCount = new AtomicInteger(0);
+        AtomicReference<AsyncFile> srcFileGlobal = new AtomicReference<>();
         getVertx().fileSystem()
                 .exists(srcPath)
                 .flatMap(Unchecked.function(srcPathExisting -> {
@@ -257,34 +258,41 @@ public class FileSystemVertx {
                         : getVertx().fileSystem().delete(destPath)))
                 .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
-                    var srcIndex = new AtomicInteger();
-                    srcFile.setReadBufferSize(buffSize).handler(buffer -> {
-//                                logger.log(System.Logger.Level.INFO, "read:" + new String(buffer.getBytes()) + "|");
-                                srcIndex.getAndIncrement();
+                    srcFileGlobal.set(srcFile);
+                    srcFile.setReadBufferSize(buffSize)
+                            .handler(buffer -> {
                                 multiEmitter.emit(buffer);
+                                var sc = srcCount.incrementAndGet();
+                                if (sc % buffElement == 0) {
+                                    srcFileGlobal.get().pause();
+                                    logger.log(System.Logger.Level.INFO, "Src pause!");
+                                }
                             })
                             .endHandler(() -> {
-                                logger.log(System.Logger.Level.INFO, "Read file finished! " + srcIndex.intValue());
+//                                logger.log(System.Logger.Level.INFO, "Read file finished! " + srcCount.intValue());
                                 srcFile.closeAndForget();
+                                srcFileGlobal.set(null);
+                                multiEmitter.complete();
                             });
-                }, buffSize * 16))
+                }))
                 .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                         .toMulti()
-                        .flatMap(destFile -> {
-//                            logger.log(System.Logger.Level.INFO, "write:" + new String(buffer.getBytes()) + "|");
-                            return destFile.write(buffer)
-                                    .map(v -> destFile.flushAndForget()).toMulti();
-//                                            .map(v -> destFile).toMulti();
-//                                            .toMulti().map(v -> destFile);
-                        }))
-                .onItem().transformToUniAndConcatenate(destFile -> {
+                        .flatMap(destFile -> destFile.write(buffer).map(v -> destFile.flushAndForget()).toMulti()))
+                .map(destFile -> {
+                    var dc = destCount.incrementAndGet();
+                    if (dc == srcCount.get() && srcFileGlobal.get() != null) {
+                        srcFileGlobal.get().resume();
+                        logger.log(System.Logger.Level.INFO, "Src resume!");
+                    }
+                    return destFile;
+                }).onItem().transformToUniAndConcatenate(destFile -> {
 //                    logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
                     return Uni.createFrom().item(destFile);
                 })
-                .map(asyncFile -> {
-                    logger.log(System.Logger.Level.INFO, "Dest file is closing!");
-                    asyncFile.closeAndForget();
-                    return asyncFile;
+                .map(destFile -> {
+//                    logger.log(System.Logger.Level.INFO, "Dest file is closing!");
+                    destFile.closeAndForget();
+                    return destFile;
                 })
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
                 .subscribe().with(
