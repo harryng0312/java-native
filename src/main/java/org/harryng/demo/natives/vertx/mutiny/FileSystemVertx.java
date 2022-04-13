@@ -11,6 +11,9 @@ import io.vertx.mutiny.core.file.AsyncFile;
 
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.temporal.TemporalUnit;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileSystemVertx {
@@ -234,10 +237,48 @@ public class FileSystemVertx {
     }
 
     public void copyFile() {
-        var srcPath = "/mnt/working/downloads/film/Rat Disaster 2021 ViE 1080p WEB-DL DD2.0 H.264 (Thuyet Minh - Sub Viet).mkv";
-        var destPath = "files/testbig.mkv";
+        var srcPath = "/mnt/working/downloads/film/Stay.Alive.2006.KSTE.avi";
+        var destPath = "files/testbig.avi";
         int buffSize = 1024 * 1024;
 
-        getVertx().fileSystem().copyAndForget(srcPath, destPath);
+        var destIndex = new AtomicInteger();
+        getVertx().fileSystem()
+                .exists(srcPath)
+                .flatMap(Unchecked.function(srcPathExisting -> {
+                    if (srcPathExisting) {
+                        return getVertx().fileSystem()
+                                .open(srcPath, new OpenOptions()
+                                        .setCreate(false)
+                                        .setRead(true));
+                    } else {
+                        throw new FileNotFoundException(srcPath);
+                    }
+                }))
+                .flatMap(Unchecked.function(srcAsyncFile -> getVertx().fileSystem().exists(destPath)))
+                .flatMap(Unchecked.function(destPathExisting -> !destPathExisting ?
+                        getVertx().fileSystem().createFile(destPath)
+                        : getVertx().fileSystem().delete(destPath)))
+                .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
+                .map(srcFile -> srcFile.setReadBufferSize(buffSize)
+                        .handler(buffer -> {
+                            logger.log(System.Logger.Level.INFO, "File read: " + buffer.length());
+                            getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
+                                    .flatMap(asyncFile -> asyncFile.write(buffer))
+//                                    .map(v -> srcFile.flushAndForget())
+                                    .onFailure().retry().indefinitely()
+                                    .await().indefinitely();
+                        })
+                        .endHandler(() -> {
+                            logger.log(System.Logger.Level.INFO, "Read file finished!");
+                            srcFile.closeAndForget();
+                        })
+                ).map(asyncFile -> {
+                    logger.log(System.Logger.Level.INFO, "Dest file is closing!");
+                    return asyncFile;
+                })
+                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
+                .subscribe().with(item -> {
+                        },
+                        failure -> logger.log(System.Logger.Level.ERROR, "Failed with " + failure, failure));
     }
 }

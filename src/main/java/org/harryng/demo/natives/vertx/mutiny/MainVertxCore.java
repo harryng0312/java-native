@@ -10,8 +10,8 @@ public class MainVertxCore {
         var app = new FileSystemVertx();
 //        app.readBigFile();
 //        app.writeFile();
-        app.copyFileMulti2();
-//        app.copyFile();
+//        app.copyFileMulti2();
+        app.copyFile();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> app.getVertx().close()));
 //        app.getVertx().closeAndAwait();
 //                .subscribe().with(
@@ -42,8 +42,8 @@ public class MainVertxCore {
 
     public static void main(String[] args) {
         var main = new MainVertxCore();
-        main.startHttpServerVerticel();
+//        main.startHttpServerVerticel();
 //        main.startNetServerVerticle();
-//        main.doFileSystem();
+        main.doFileSystem();
     }
 }
