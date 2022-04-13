@@ -194,10 +194,8 @@ public class MainVertxFileSystem {
                 .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
                     var srcIndex = new AtomicInteger();
-                    srcFile.setReadBufferSize(buffSize)
-                            .handler(buffer -> {
-                                logger.log(System.Logger.Level.INFO,
-                                        "read:" + new String(buffer.getBytes()) + "|");
+                    srcFile.setReadBufferSize(buffSize).handler(buffer -> {
+                                logger.log(System.Logger.Level.INFO, "read:" + new String(buffer.getBytes()) + "|");
                                 srcIndex.getAndIncrement();
                                 multiEmitter.emit(buffer);
                             })
@@ -206,18 +204,17 @@ public class MainVertxFileSystem {
                                 srcFile.closeAndForget();
                             });
                 }))
-                .concatMap(
-                        buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
-                                .toMulti()
-                                .flatMap(destFile -> {
-                                    destIndex.getAndIncrement();
-                                    logger.log(System.Logger.Level.INFO, "write:"
-                                            + new String(buffer.getBytes()) + "|");
-                                    return destFile.write(buffer)
-                                            .map(v -> destFile.flushAndForget()).toMulti();
+                .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
+                        .toMulti()
+                        .flatMap(destFile -> {
+                            destIndex.getAndIncrement();
+                            logger.log(System.Logger.Level.INFO, "write:"
+                                    + new String(buffer.getBytes()) + "|");
+                            return destFile.write(buffer)
+                                    .map(v -> destFile.flushAndForget()).toMulti();
 //                                            .map(v -> destFile).toMulti();
 //                                            .toMulti().map(v -> destFile);
-                                }))
+                        }))
                 .onItem().transformToUniAndConcatenate(destFile -> {
                     logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
                     return Uni.createFrom().item(destFile);
@@ -228,8 +225,7 @@ public class MainVertxFileSystem {
                     return asyncFile;
                 })
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
-                .subscribe().with(
-                        item -> logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
+                .subscribe().with(item -> logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
                         failure -> System.out.println("Failed with " + failure)//,
 //                        () -> System.out.println("Completed")
                 );

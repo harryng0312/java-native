@@ -7,8 +7,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.http.HttpServer;
 import io.vertx.mutiny.ext.web.Router;
 
-public class MainVerticle extends AbstractVerticle {
-    static System.Logger logger = System.getLogger(MainVerticle.class.getCanonicalName());
+public class HttpServerVerticle extends AbstractVerticle {
+    static System.Logger logger = System.getLogger(HttpServerVerticle.class.getCanonicalName());
     private long counter = 0L;
     private HttpServer server = null;
 
