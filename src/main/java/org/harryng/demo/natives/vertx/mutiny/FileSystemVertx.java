@@ -2,6 +2,7 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.subscription.MultiEmitter;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
@@ -233,13 +234,14 @@ public class FileSystemVertx {
     }
 
     public void copyFile() {
-        var srcPath = "/mnt/working/downloads/film/Stay.Alive.2006.KSTE.avi";
-        var destPath = "files/testbig.avi";
+        var srcPath = "files/BadgeChainDemo.mp4";
+        var destPath = "files/BadgeChainDemo_1.mp4";
         int buffSize = 1024 * 1024;
         int buffElement = 32;
         AtomicInteger srcCount = new AtomicInteger(0);
         AtomicInteger destCount = new AtomicInteger(0);
         AtomicReference<AsyncFile> srcFileGlobal = new AtomicReference<>();
+        AtomicReference<AsyncFile> destFileGlobal = new AtomicReference<>();
         getVertx().fileSystem()
                 .exists(srcPath)
                 .flatMap(Unchecked.function(srcPathExisting -> {
@@ -257,8 +259,11 @@ public class FileSystemVertx {
                         getVertx().fileSystem().createFile(destPath)
                         : getVertx().fileSystem().delete(destPath)))
                 .flatMap(Unchecked.function(v -> getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))))
-                .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
+                .map(srcFile -> {
                     srcFileGlobal.set(srcFile);
+                    return srcFile;
+                })
+                .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
                     srcFile.setReadBufferSize(buffSize)
                             .handler(buffer -> {
                                 multiEmitter.emit(buffer);
@@ -269,13 +274,17 @@ public class FileSystemVertx {
                                 }
                             })
                             .endHandler(() -> {
-//                                logger.log(System.Logger.Level.INFO, "Read file finished! " + srcCount.intValue());
                                 srcFile.closeAndForget();
                                 srcFileGlobal.set(null);
                                 multiEmitter.complete();
+                                logger.log(System.Logger.Level.INFO, "Src file is closed!");
                             });
                 }))
                 .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
+                        .map(destFile -> {
+                            destFileGlobal.set(destFile);
+                            return destFile;
+                        })
                         .toMulti()
                         .flatMap(destFile -> destFile.write(buffer).map(v -> destFile.flushAndForget()).toMulti()))
                 .map(destFile -> {
@@ -285,21 +294,14 @@ public class FileSystemVertx {
                         logger.log(System.Logger.Level.INFO, "Src resume!");
                     }
                     return destFile;
-                }).onItem().transformToUniAndConcatenate(destFile -> {
-//                    logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
-                    return Uni.createFrom().item(destFile);
                 })
-                .map(destFile -> {
-//                    logger.log(System.Logger.Level.INFO, "Dest file is closing!");
-                    destFile.closeAndForget();
-                    return destFile;
+                .onCompletion().invoke(() -> {
+                    logger.log(System.Logger.Level.INFO, "Dest file is closed!");
+                    destFileGlobal.get().closeAndForget();
                 })
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
-                .subscribe().with(
-                        item -> {
-                        },//logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
-                        failure -> logger.log(System.Logger.Level.ERROR, "Failed with " + failure, failure)//,
-//                        () -> System.out.println("Completed")
-                );
+                .subscribe().with(item -> {
+                }, failure -> {
+                });
     }
 }
