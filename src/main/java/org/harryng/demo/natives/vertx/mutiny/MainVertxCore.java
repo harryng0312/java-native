@@ -42,8 +42,8 @@ public class MainVertxCore {
 
     public static void main(String[] args) {
         var main = new MainVertxCore();
-//        main.startHttpServerVerticel();
+        main.startHttpServerVerticel();
 //        main.startNetServerVerticle();
-        main.doFileSystem();
+//        main.doFileSystem();
     }
 }

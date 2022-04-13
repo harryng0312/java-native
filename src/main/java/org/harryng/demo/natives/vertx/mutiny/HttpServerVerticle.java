@@ -4,9 +4,12 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.http.HttpServer;
+import io.vertx.mutiny.core.http.HttpServerRequest;
 import io.vertx.mutiny.ext.web.Router;
 import io.vertx.mutiny.ext.web.RoutingContext;
+import io.vertx.mutiny.ext.web.handler.StaticHandler;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,6 +17,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class HttpServerVerticle extends AbstractVerticle {
     static System.Logger logger = System.getLogger(HttpServerVerticle.class.getCanonicalName());
     private HttpServer server = null;
+
+    private EventBus eventBus = null;
 
     public void onGetHello(RoutingContext context) {
         String address = context.request().connection().remoteAddress().hostAddress()
@@ -48,35 +53,93 @@ public class HttpServerVerticle extends AbstractVerticle {
         });
     }
 
+    public void onWsHello(RoutingContext context) {
+        String address = context.request().connection().remoteAddress().hostAddress()
+                + " " + context.request().connection().remoteAddress().port();
+        var queryParams = context.queryParams();
+        var id = context.pathParam("id");
+        var name = queryParams.contains("name") ? queryParams.get("name") : "unknown";
+        context.request().toWebSocket().invoke(serverWebSocket -> serverWebSocket.handler(buffer -> {
+                    logger.log(System.Logger.Level.INFO, "Receive:"
+                            + new String(buffer.getBytes(), StandardCharsets.UTF_8));
+                    serverWebSocket.writeTextMessage("WebSocket say hello!").subscribe().with(
+                            itm -> logger.log(System.Logger.Level.INFO, "send msg finished"));
+                }).drainHandler(() -> {
+                    // pause if needed
+                }).endHandler(() -> {
+                    logger.log(System.Logger.Level.INFO, "End!");
+                }).closeHandler(() -> {
+                    logger.log(System.Logger.Level.INFO, "Closed!");
+                }).exceptionHandler(ex -> {
+                    logger.log(System.Logger.Level.ERROR, "", ex);
+                }).accept())
+//                .flatMap(serverWebSocket -> serverWebSocket.writeTextMessage("WebSocket say hello!"))
+                .subscribe().with(
+                        itm -> logger.log(System.Logger.Level.INFO, "Subcriber finished!"),
+                        ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+
+//                .body().map(buffer -> {
+//            var reqData = new JsonObject(buffer.getDelegate());
+//            var resData = new JsonObject()
+//                    .put("id", id)
+//                    .put("name", name)
+//                    .put("address", address)
+//                    .put("message", "Hello " + name + " connected from " + address)
+//                    .put("requestData", reqData);
+//            return resData;
+//        }).flatMap(context::json
+//        ).subscribe().with(itm -> {
+//        });
+    }
+
     public void onFailure(RoutingContext context) {
-        context.response().setStatusCode(404).end()
-                .subscribe().with(ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+        context.response().setStatusCode(context.statusCode()).end()
+                .subscribe().with(itm->{}, ex -> logger.log(System.Logger.Level.ERROR, "", ex));
     }
 
     @Override
     public Uni<Void> asyncStart() {
         super.asyncStart();
         server = vertx.createHttpServer(new HttpServerOptions());
-        var rootRouter = Router.router(vertx);
-        rootRouter.route("/");
+        eventBus = vertx.eventBus();
+        final var rootRouter = Router.router(vertx);
+        rootRouter.route("/").failureHandler(this::onFailure);
 
         var getHelloRouter = Router.router(vertx);
-        var postHelloRouter = Router.router(vertx);
         getHelloRouter.get("/:id")
                 .produces("application/json")
                 .consumes("application/json")
                 .handler(this::onGetHello)
                 .failureHandler(this::onFailure);
+
+        var postHelloRouter = Router.router(vertx);
         postHelloRouter.post("/:id")
                 .produces("application/json")
                 .consumes("application/json")
                 .handler(this::onPostHello)
                 .failureHandler(this::onFailure);
 
+        var wsRouter = Router.router(vertx);
+        var wsHelloRouter = Router.router(vertx);
+        wsHelloRouter.route("/")
+                .handler(this::onWsHello)
+                .failureHandler(this::onFailure);
+        wsRouter.mountSubRouter("/hello", wsHelloRouter);
+
         rootRouter.mountSubRouter("/hello", getHelloRouter);
         rootRouter.mountSubRouter("/hello", postHelloRouter);
+        rootRouter.mountSubRouter("/ws", wsRouter);
+
+        var staticHandler = StaticHandler.create("static-resources");
+        staticHandler.setIndexPage("index.html");
+        var staticRouter = Router.router(vertx);
+        staticRouter.route("/static/*").handler(staticHandler)
+                .failureHandler(this::onFailure);
+        rootRouter.mountSubRouter("/", staticRouter);
         return server
                 .requestHandler(rootRouter)
+                .exceptionHandler(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
+                .invalidRequestHandler(HttpServerRequest::bodyAndForget)
                 .listen(8080)
                 .onItem().invoke(() -> logger.log(System.Logger.Level.INFO, "HTTP server started on port " + server.actualPort()))
                 .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
