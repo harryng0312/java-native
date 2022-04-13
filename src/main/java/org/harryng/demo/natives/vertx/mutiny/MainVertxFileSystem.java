@@ -170,9 +170,9 @@ public class MainVertxFileSystem {
     }
 
     public void copyFileMulti2() {
-        var srcPath = "files/test2.txt";
-        var destPath = "files/test2_1.txt";
-        int buffSize = 2;
+        var srcPath = "/mnt/working/downloads/film/Rat Disaster 2021 ViE 1080p WEB-DL DD2.0 H.264 (Thuyet Minh - Sub Viet).mkv";
+        var destPath = "files/testbig.mkv";
+        int buffSize = 1024 * 1024;
 
         var destIndex = new AtomicInteger();
         getVertx().fileSystem()
@@ -195,7 +195,7 @@ public class MainVertxFileSystem {
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
                     var srcIndex = new AtomicInteger();
                     srcFile.setReadBufferSize(buffSize).handler(buffer -> {
-                                logger.log(System.Logger.Level.INFO, "read:" + new String(buffer.getBytes()) + "|");
+//                                logger.log(System.Logger.Level.INFO, "read:" + new String(buffer.getBytes()) + "|");
                                 srcIndex.getAndIncrement();
                                 multiEmitter.emit(buffer);
                             })
@@ -208,8 +208,7 @@ public class MainVertxFileSystem {
                         .toMulti()
                         .flatMap(destFile -> {
                             destIndex.getAndIncrement();
-                            logger.log(System.Logger.Level.INFO, "write:"
-                                    + new String(buffer.getBytes()) + "|");
+//                            logger.log(System.Logger.Level.INFO, "write:" + new String(buffer.getBytes()) + "|");
                             return destFile.write(buffer)
                                     .map(v -> destFile.flushAndForget()).toMulti();
 //                                            .map(v -> destFile).toMulti();
@@ -229,5 +228,13 @@ public class MainVertxFileSystem {
                         failure -> System.out.println("Failed with " + failure)//,
 //                        () -> System.out.println("Completed")
                 );
+    }
+
+    public void copyFile() {
+        var srcPath = "/mnt/working/downloads/film/Rat Disaster 2021 ViE 1080p WEB-DL DD2.0 H.264 (Thuyet Minh - Sub Viet).mkv";
+        var destPath = "files/testbig.mkv";
+        int buffSize = 1024 * 1024;
+
+        getVertx().fileSystem().copyAndForget(srcPath, destPath);
     }
 }
