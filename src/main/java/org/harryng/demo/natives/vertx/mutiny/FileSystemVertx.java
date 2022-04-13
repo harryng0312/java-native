@@ -2,7 +2,6 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.subscription.BackPressureStrategy;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
@@ -14,8 +13,8 @@ import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MainVertxFileSystem {
-    static System.Logger logger = System.getLogger(MainVertxFileSystem.class.getCanonicalName());
+public class FileSystemVertx {
+    static System.Logger logger = System.getLogger(FileSystemVertx.class.getCanonicalName());
     Vertx vertx = null;
 
     private void initVertx() {

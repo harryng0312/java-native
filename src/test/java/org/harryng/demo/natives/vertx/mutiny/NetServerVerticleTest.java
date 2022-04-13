@@ -1,25 +1,11 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.net.NetClientOptions;
-import io.vertx.mutiny.core.Vertx;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 
-public class NetServerVerticleTest {
-    static System.Logger logger = System.getLogger(NetServerVerticleTest.class.getCanonicalName());
-    protected Vertx vertx = null;
-
-    @BeforeEach
-    public void init() {
-        vertx = Vertx.vertx();
-    }
-
-    @AfterEach
-    public void destroy() {
-        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
-    }
+public class NetServerVerticleTest extends AbstractVertxTest{
 
     @Test
     public void testSendNetServerFromClient() {

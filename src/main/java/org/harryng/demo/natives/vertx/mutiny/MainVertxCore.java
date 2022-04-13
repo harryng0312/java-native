@@ -7,7 +7,7 @@ public class MainVertxCore {
     static System.Logger logger = System.getLogger(MainVertxCore.class.getCanonicalName());
 
     public void doFileSystem() {
-        var app = new MainVertxFileSystem();
+        var app = new FileSystemVertx();
 //        app.readBigFile();
 //        app.writeFile();
         app.copyFileMulti2();
@@ -42,7 +42,8 @@ public class MainVertxCore {
 
     public static void main(String[] args) {
         var main = new MainVertxCore();
-        main.startNetServerVerticle();
+        main.startHttpServerVerticel();
+//        main.startNetServerVerticle();
 //        main.doFileSystem();
     }
 }
