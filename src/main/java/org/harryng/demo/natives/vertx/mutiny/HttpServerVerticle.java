@@ -4,14 +4,17 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
+import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.http.HttpServer;
 import io.vertx.mutiny.core.http.HttpServerRequest;
+import io.vertx.mutiny.core.http.WebSocketFrame;
 import io.vertx.mutiny.ext.web.Router;
 import io.vertx.mutiny.ext.web.RoutingContext;
 import io.vertx.mutiny.ext.web.handler.StaticHandler;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class HttpServerVerticle extends AbstractVerticle {
@@ -60,23 +63,36 @@ public class HttpServerVerticle extends AbstractVerticle {
         var id = context.pathParam("id");
         var name = queryParams.contains("name") ? queryParams.get("name") : "unknown";
         context.request().toWebSocket().invoke(serverWebSocket -> serverWebSocket.handler(buffer -> {
-                    logger.log(System.Logger.Level.INFO, "Receive:"
-                            + new String(buffer.getBytes(), StandardCharsets.UTF_8));
-                    serverWebSocket.writeTextMessage("WebSocket say hello!").subscribe().with(
-                            itm -> logger.log(System.Logger.Level.INFO, "send msg finished"));
-                }).drainHandler(() -> {
-                    // pause if needed
-                }).endHandler(() -> {
-                    logger.log(System.Logger.Level.INFO, "End!");
-                }).closeHandler(() -> {
-                    logger.log(System.Logger.Level.INFO, "Closed!");
-                }).exceptionHandler(ex -> {
-                    logger.log(System.Logger.Level.ERROR, "", ex);
-                }).accept())
-//                .flatMap(serverWebSocket -> serverWebSocket.writeTextMessage("WebSocket say hello!"))
-                .subscribe().with(
-                        itm -> logger.log(System.Logger.Level.INFO, "Subcriber finished!"),
-                        ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+            logger.log(System.Logger.Level.INFO, "Handler:"
+                    + new String(buffer.getBytes(), StandardCharsets.UTF_8));
+            var reqData = new JsonObject(buffer.getDelegate());
+            var resData = new JsonObject()
+                    .put("id", id)
+                    .put("name", name)
+                    .put("address", address)
+                    .put("message", "Hello " + name + " connected from " + address)
+                    .put("requestData", reqData);
+            serverWebSocket.write(Buffer.buffer(resData.toString())).flatMap(v -> serverWebSocket.writeTextMessage("Server send data finished"))
+                    .subscribe().with(itm -> logger.log(System.Logger.Level.INFO, "send msg finished"));
+        }).textMessageHandler(str -> {
+            logger.log(System.Logger.Level.INFO, "Text Msg Handler:" + str);
+        }).binaryMessageHandler(buffer -> {
+            logger.log(System.Logger.Level.INFO, "Binary Msg Handler:"
+                    + new String(buffer.getBytes(), StandardCharsets.UTF_8));
+        }).frameHandler(webSocketFrame -> {
+            logger.log(System.Logger.Level.INFO, "Frame Handler:"
+                    + new String(webSocketFrame.binaryData().getBytes()));
+        }).drainHandler(() -> {
+            // pause if needed
+        }).closeHandler(() -> {
+            logger.log(System.Logger.Level.INFO, "Client websocket closed!");
+        }).endHandler(() -> {
+            logger.log(System.Logger.Level.INFO, "WebSocket is end!");
+        }).exceptionHandler(ex -> {
+            logger.log(System.Logger.Level.ERROR, "", ex);
+        })).subscribe().with(
+                itm -> logger.log(System.Logger.Level.INFO, "Client fired onConnected!"),
+                ex -> logger.log(System.Logger.Level.ERROR, "", ex));
 
 //                .body().map(buffer -> {
 //            var reqData = new JsonObject(buffer.getDelegate());
@@ -94,7 +110,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     public void onFailure(RoutingContext context) {
         context.response().setStatusCode(context.statusCode()).end()
-                .subscribe().with(itm->{}, ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+                .subscribe().with(itm -> {
+                }, ex -> logger.log(System.Logger.Level.ERROR, "", ex));
     }
 
     @Override
@@ -121,7 +138,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         var wsRouter = Router.router(vertx);
         var wsHelloRouter = Router.router(vertx);
-        wsHelloRouter.route("/")
+        wsHelloRouter.route("/:id")
                 .handler(this::onWsHello)
                 .failureHandler(this::onFailure);
         wsRouter.mountSubRouter("/hello", wsHelloRouter);
