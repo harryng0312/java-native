@@ -30,6 +30,17 @@ public class MainVertxCore {
 //        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
     }
 
+    public void startHttpServer2Verticel() {
+        var vertx = Vertx.vertx();
+        var options = new DeploymentOptions()
+                .setWorker(false)
+                .setInstances(1);
+        logger.log(System.Logger.Level.INFO, "Deplopment starting...");
+        vertx.deployVerticleAndAwait(HttpServer2Verticle::new, options);
+        logger.log(System.Logger.Level.INFO, "Deplopment completed");
+//        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
+    }
+
     public void startNetServerVerticle() {
         var vertx = Vertx.vertx();
         var options = new DeploymentOptions()
@@ -42,7 +53,7 @@ public class MainVertxCore {
 
     public static void main(String[] args) {
         var main = new MainVertxCore();
-        main.startHttpServerVerticel();
+        main.startHttpServer2Verticel();
 //        main.startNetServerVerticle();
 //        main.doFileSystem();
     }
