@@ -52,6 +52,7 @@ public class MainVertxCore {
     }
 
     public static void main(String[] args) {
+        System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.Log4j2LogDelegateFactory");
         var main = new MainVertxCore();
         main.startHttpServer2Verticel();
 //        main.startNetServerVerticle();

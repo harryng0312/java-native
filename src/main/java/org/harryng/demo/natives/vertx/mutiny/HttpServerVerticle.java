@@ -3,12 +3,13 @@ package org.harryng.demo.natives.vertx.mutiny;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.http.HttpServer;
 import io.vertx.mutiny.core.http.HttpServerRequest;
-import io.vertx.mutiny.core.http.WebSocketFrame;
 import io.vertx.mutiny.ext.web.Router;
 import io.vertx.mutiny.ext.web.RoutingContext;
 import io.vertx.mutiny.ext.web.handler.StaticHandler;
@@ -16,12 +17,10 @@ import io.vertx.mutiny.ext.web.handler.StaticHandler;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class HttpServerVerticle extends AbstractVerticle {
-    static System.Logger logger = System.getLogger(HttpServerVerticle.class.getCanonicalName());
+    static Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
     private HttpServer server = null;
 
     private EventBus eventBus = null;
@@ -67,7 +66,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         var id = context.pathParam("id");
         var name = queryParams.contains("name") ? queryParams.get("name") : "unknown";
         context.request().toWebSocket().invoke(serverWebSocket -> serverWebSocket.handler(buffer -> {
-            logger.log(System.Logger.Level.INFO, "Handler:"
+            logger.info( "Handler:"
                     + new String(buffer.getBytes(), StandardCharsets.UTF_8));
             var reqData = new JsonObject(buffer.getDelegate());
             var resData = new JsonObject()
@@ -77,41 +76,41 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .put("message", "Hello " + name + " connected from " + address)
                     .put("requestData", reqData);
             serverWebSocket.write(Buffer.buffer(resData.toString())).flatMap(v -> serverWebSocket.writeTextMessage("Server send data finished"))
-                    .subscribe().with(itm -> logger.log(System.Logger.Level.INFO, "send msg finished"));
+                    .subscribe().with(itm -> logger.info( "send msg finished"));
         }).textMessageHandler(str -> {
-            logger.log(System.Logger.Level.INFO, "Text Msg Handler:" + str);
+            logger.info( "Text Msg Handler:" + str);
         }).binaryMessageHandler(buffer -> {
-            logger.log(System.Logger.Level.INFO, "Binary Msg Handler:"
+            logger.info( "Binary Msg Handler:"
                     + new String(buffer.getBytes(), StandardCharsets.UTF_8));
         }).frameHandler(webSocketFrame -> {
-            logger.log(System.Logger.Level.INFO, "Frame Handler:"
+            logger.info( "Frame Handler:"
                     + new String(webSocketFrame.binaryData().getBytes()));
         }).drainHandler(() -> {
             // pause if needed
         }).closeHandler(() -> {
-            logger.log(System.Logger.Level.INFO, "Client websocket closed!");
+            logger.info( "Client websocket closed!");
         }).endHandler(() -> {
-            logger.log(System.Logger.Level.INFO, "WebSocket is end!");
+            logger.info( "WebSocket is end!");
             context.vertx().cancelTimer(pingId.get());
         }).exceptionHandler(ex -> {
-            logger.log(System.Logger.Level.ERROR, "", ex);
+            logger.error( "", ex);
         })).subscribe().with(
                 serverWebSocket -> {
-                    logger.log(System.Logger.Level.INFO, "Client fired onConnected!");
+                    logger.info( "Client fired onConnected!");
                     var preodicId = context.vertx().setPeriodic(5_000, timerId -> {
                         serverWebSocket.writePing(Buffer.buffer("Ping[" + LocalDateTime.now().format(
                                 DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "]")).subscribe().with(v ->
-                                logger.log(System.Logger.Level.INFO, "Ping client"));
+                                logger.info( "Ping client"));
                     });
                     pingId.set(preodicId);
                 },
-                ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+                ex -> logger.error( "", ex));
     }
 
     public void onFailure(RoutingContext context) {
         context.response().setStatusCode(context.statusCode()).end()
                 .subscribe().with(itm -> {
-                }, ex -> logger.log(System.Logger.Level.ERROR, "", ex));
+                }, ex -> logger.error( "", ex));
     }
 
     @Override
@@ -155,18 +154,18 @@ public class HttpServerVerticle extends AbstractVerticle {
         rootRouter.mountSubRouter("/", staticRouter);
         return server
                 .requestHandler(rootRouter)
-                .exceptionHandler(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
+                .exceptionHandler(ex -> logger.error( "", ex))
                 .invalidRequestHandler(HttpServerRequest::bodyAndForget)
                 .listen(8080)
-                .onItem().invoke(() -> logger.log(System.Logger.Level.INFO, "HTTP server started on port " + server.actualPort()))
-                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "", ex))
+                .onItem().invoke(() -> logger.info( "HTTP server started on port " + server.actualPort()))
+                .onFailure().invoke(ex -> logger.error( "", ex))
                 .replaceWithVoid();
     }
 
     @Override
     public Uni<Void> asyncStop() {
         super.asyncStop();
-        logger.log(System.Logger.Level.INFO, "Vertx is shutting down!");
+        logger.info( "Vertx is shutting down!");
         return super.asyncStop().flatMap(v -> server.close()).flatMap(v -> vertx.close());
     }
 }

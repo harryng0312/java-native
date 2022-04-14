@@ -2,10 +2,11 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.subscription.MultiEmitter;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.OpenOptions;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.file.AsyncFile;
@@ -16,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class FileSystemVertx {
-    static System.Logger logger = System.getLogger(FileSystemVertx.class.getCanonicalName());
+    static Logger logger = LoggerFactory.getLogger(FileSystemVertx.class);
     Vertx vertx = null;
 
     private void initVertx() {
@@ -35,12 +36,12 @@ public class FileSystemVertx {
         getVertx().fileSystem()
                 .readFile("./files/test.txt")
                 .map(buffer -> {
-                    logger.log(System.Logger.Level.INFO, "file content:"
+                    logger.info("file content:"
                             + new String(buffer.getBytes(), StandardCharsets.UTF_8));
                     return buffer;
                 })
                 .onFailure().transform(err -> {
-                    logger.log(System.Logger.Level.INFO, "", err);
+                    logger.info("", err);
                     return err;
                 });
     }
@@ -51,30 +52,30 @@ public class FileSystemVertx {
         int buffSize = 1024 * 1024;
         getVertx().fileSystem().open(srcPath, new OpenOptions().setRead(true))
                 .map(asyncFile -> {
-                    logger.log(System.Logger.Level.INFO, "file read");
+                    logger.info("file read");
                     return asyncFile.setReadBufferSize(buffSize)
                             .handler(buffer -> {
-                                logger.log(System.Logger.Level.INFO, "Buffsize: " + buffer.length());
+                                logger.info("Buffsize: " + buffer.length());
                             })
-//                            .endHandler(() -> logger.log(System.Logger.Level.INFO, "end file!"))
+//                            .endHandler(() -> logger.info( "end file!"))
                             .endHandler(() -> {
-                                logger.log(System.Logger.Level.INFO, "end file!");
+                                logger.info("end file!");
                                 asyncFile.closeAndForget();
                             });
 //                    return asyncFile;
                 })
 //                .flatMap(asyncFile -> {
-//                    logger.log(System.Logger.Level.INFO, "file closed");
+//                    logger.info( "file closed");
 //                    return asyncFile.close();
 //                })
                 .onFailure().transform(err -> {
-                    logger.log(System.Logger.Level.ERROR, "", err);
+                    logger.info("", err);
                     return err;
                 })
                 .subscribe().with(
                         item -> {
-                        },//logger.log(System.Logger.Level.INFO, "subscribe: " + item),
-                        ex -> logger.log(System.Logger.Level.ERROR, "error: ", ex)
+                        },//logger.info( "subscribe: " + item),
+                        ex -> logger.info("error: ", ex)
                 );
 //                .await().indefinitely();
     }
@@ -137,18 +138,18 @@ public class FileSystemVertx {
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter ->
                         srcFile.setReadBufferSize(buffSize)
                                 .handler(buffer -> {
-                                    logger.log(System.Logger.Level.INFO, "read buffer size: " + buffer.length());
+                                    logger.info("read buffer size: " + buffer.length());
                                     multiEmitter.emit(buffer);
                                 })
                                 .endHandler(() -> {
-                                    logger.log(System.Logger.Level.INFO, "Read file finished!");
+                                    logger.info("Read file finished!");
                                     srcFile.closeAndForget();
                                 })))
                 .onItem().transformToMultiAndConcatenate(
                         buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                                 .toMulti()
                                 .flatMap(destFile -> {
-                                    logger.log(System.Logger.Level.INFO, "write buffer size: " + buffer.length());
+                                    logger.info("write buffer size: " + buffer.length());
                                     return destFile.write(buffer)
 //                                                .map(v -> destFile.flushAndForget())
                                             .toMulti()
@@ -159,13 +160,13 @@ public class FileSystemVertx {
                 .toUni()
 //                .flatMap(itm -> itm)
                 .map(destFile -> {
-                    logger.log(System.Logger.Level.INFO, "Dest file size: " + destFile.sizeBlocking());
+                    logger.info("Dest file size: " + destFile.sizeBlocking());
                     destFile.closeAndForget();
                     return destFile;
                 })
-                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
+                .onFailure().invoke(ex -> logger.info("Exception: ", ex))
                 .subscribe().with(
-                        item -> logger.log(System.Logger.Level.INFO, "read size: " + item.sizeBlocking()),
+                        item -> logger.info("read size: " + item.sizeBlocking()),
                         failure -> System.out.println("Failed with " + failure)//,
 //                        () -> System.out.println("Completed")
                 );
@@ -197,38 +198,38 @@ public class FileSystemVertx {
                 .onItem().transformToMulti(srcFile -> Multi.createFrom().<Buffer>emitter(multiEmitter -> {
                     var srcIndex = new AtomicInteger();
                     srcFile.setReadBufferSize(buffSize).handler(buffer -> {
-//                                logger.log(System.Logger.Level.INFO, "read:" + new String(buffer.getBytes()) + "|");
+//                                logger.info( "read:" + new String(buffer.getBytes()) + "|");
                                 srcIndex.getAndIncrement();
                                 multiEmitter.emit(buffer);
                             })
                             .endHandler(() -> {
-                                logger.log(System.Logger.Level.INFO, "Read file finished! " + srcIndex.intValue());
+                                logger.info("Read file finished! " + srcIndex.intValue());
                                 srcFile.closeAndForget();
                             });
                 }, buffSize * 16))
                 .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
                         .toMulti()
                         .flatMap(destFile -> {
-//                            logger.log(System.Logger.Level.INFO, "write:" + new String(buffer.getBytes()) + "|");
+//                            logger.info( "write:" + new String(buffer.getBytes()) + "|");
                             return destFile.write(buffer)
                                     .map(v -> destFile.flushAndForget()).toMulti();
 //                                            .map(v -> destFile).toMulti();
 //                                            .toMulti().map(v -> destFile);
                         }))
                 .onItem().transformToUniAndConcatenate(destFile -> {
-//                    logger.log(System.Logger.Level.INFO, "Write count: " + destIndex.intValue());
+//                    logger.info( "Write count: " + destIndex.intValue());
                     return Uni.createFrom().item(destFile);
                 })
                 .map(asyncFile -> {
-                    logger.log(System.Logger.Level.INFO, "Dest file is closing!");
+                    logger.info("Dest file is closing!");
                     asyncFile.closeAndForget();
                     return asyncFile;
                 })
-                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
+                .onFailure().invoke(ex -> logger.info("Exception: ", ex))
                 .subscribe().with(
                         item -> {
-                        },//logger.log(System.Logger.Level.INFO, "Read size: " + item.sizeBlocking()),
-                        failure -> logger.log(System.Logger.Level.ERROR, "Failed with " + failure, failure)//,
+                        },//logger.info( "Read size: " + item.sizeBlocking()),
+                        failure -> logger.info("Failed with " + failure, failure)//,
 //                        () -> System.out.println("Completed")
                 );
     }
@@ -270,14 +271,14 @@ public class FileSystemVertx {
                                 var sc = srcCount.incrementAndGet();
                                 if (sc % buffElement == 0) {
                                     srcFileGlobal.get().pause();
-                                    logger.log(System.Logger.Level.INFO, "Src pause!");
+                                    logger.info("Src pause!");
                                 }
                             })
                             .endHandler(() -> {
                                 srcFile.closeAndForget();
                                 srcFileGlobal.set(null);
                                 multiEmitter.complete();
-                                logger.log(System.Logger.Level.INFO, "Src file is closed!");
+                                logger.info("Src file is closed!");
                             });
                 }))
                 .concatMap(buffer -> getVertx().fileSystem().open(destPath, new OpenOptions().setAppend(true))
@@ -291,15 +292,15 @@ public class FileSystemVertx {
                     var dc = destCount.incrementAndGet();
                     if (dc == srcCount.get() && srcFileGlobal.get() != null) {
                         srcFileGlobal.get().resume();
-                        logger.log(System.Logger.Level.INFO, "Src resume!");
+                        logger.info("Src resume!");
                     }
                     return destFile;
                 })
                 .onCompletion().invoke(() -> {
-                    logger.log(System.Logger.Level.INFO, "Dest file is closed!");
+                    logger.info("Dest file is closed!");
                     destFileGlobal.get().closeAndForget();
                 })
-                .onFailure().invoke(ex -> logger.log(System.Logger.Level.ERROR, "Exception: ", ex))
+                .onFailure().invoke(ex -> logger.info("Exception: ", ex))
                 .subscribe().with(item -> {
                 }, failure -> {
                 });

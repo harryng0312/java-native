@@ -2,6 +2,8 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.net.NetServerOptions;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.net.NetServer;
@@ -10,7 +12,7 @@ import io.vertx.mutiny.core.net.NetSocket;
 import java.nio.charset.StandardCharsets;
 
 public class NetServerVerticle extends AbstractVerticle {
-    static System.Logger logger = System.getLogger(NetServerVerticle.class.getCanonicalName());
+    static Logger logger = LoggerFactory.getLogger(NetServerVerticle.class);
     protected NetServer server = null;
 
     protected Uni<Void> init() {
@@ -20,7 +22,7 @@ public class NetServerVerticle extends AbstractVerticle {
         return server.connectHandler(this::handleNetSocket)
                 .listen()
                 .invoke(v -> {
-                    logger.log(System.Logger.Level.INFO, "Server is listening at port " + server.actualPort() + " ...");
+                    logger.info("Server is listening at port " + server.actualPort() + " ...");
                 }).replaceWithVoid();
     }
 
@@ -29,7 +31,7 @@ public class NetServerVerticle extends AbstractVerticle {
     }
 
     protected void onMessage(Buffer buffer) {
-        logger.log(System.Logger.Level.INFO, "Server receive:" + new String(buffer.getBytes(), StandardCharsets.UTF_8));
+        logger.info("Server receive:" + new String(buffer.getBytes(), StandardCharsets.UTF_8));
     }
 
     @Override

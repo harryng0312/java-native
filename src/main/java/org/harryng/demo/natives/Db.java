@@ -1,13 +1,18 @@
 package org.harryng.demo.natives;
 
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import org.h2.jdbc.JdbcConnection;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 
 public class Db {
 
-    static System.Logger logger = System.getLogger(Db.class.getCanonicalName());
+    static Logger logger = LoggerFactory.getLogger(Db.class);
 
     private Connection connection = null;
 
@@ -24,38 +29,38 @@ public class Db {
         connection.close();
     }
 
-    public void insertDb(){
-        logger.log(System.Logger.Level.INFO, "insert into db");
+    public void insertDb() {
+        logger.info("insert into db");
     }
 
-    public void updateDb(){
-
-    }
-
-    public void deleteDb(){
+    public void updateDb() {
 
     }
 
-    public void selectOneDb(){
+    public void deleteDb() {
+
+    }
+
+    public void selectOneDb() {
         final var sql = "select id_, created_date, modified_date, status, screenname," +
                 "username, password_, dob, passwd_encrypted_method from user_";
         try {
             initConn();
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             ResultSet resultSet = preparedStatement.executeQuery();
-            while(resultSet.next()){
-                logger.log(System.Logger.Level.INFO, "Screename["+ resultSet.getLong("id_") +"]: " + resultSet.getString("username"));
+            while (resultSet.next()) {
+                logger.info("Screename[" + resultSet.getLong("id_") + "]: " + resultSet.getString("username"));
             }
             preparedStatement.close();
         } catch (SQLException e) {
-            logger.log(System.Logger.Level.ERROR, "", e);
+            logger.error("", e);
         } catch (ClassNotFoundException e) {
-            logger.log(System.Logger.Level.ERROR, "", e);
+            logger.error("", e);
         } finally {
             try {
                 closeConn();
             } catch (SQLException e) {
-                logger.log(System.Logger.Level.ERROR, "", e);
+                logger.error("", e);
             }
         }
     }
