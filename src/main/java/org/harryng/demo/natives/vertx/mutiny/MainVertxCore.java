@@ -1,10 +1,12 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.impl.logging.Logger;
+import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.mutiny.core.Vertx;
 
 public class MainVertxCore {
-    static System.Logger logger = System.getLogger(MainVertxCore.class.getCanonicalName());
+    static Logger logger = LoggerFactory.getLogger(MainVertxCore.class);
 
     public void doFileSystem() {
         var app = new FileSystemVertx();
@@ -15,7 +17,7 @@ public class MainVertxCore {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> app.getVertx().close()));
 //        app.getVertx().closeAndAwait();
 //                .subscribe().with(
-//                        item -> logger.log(System.Logger.Level.INFO, "vertx finished: " + item),
+//                        item -> logger.info("vertx finished: " + item),
 //                        ex -> logger.log(System.Logger.Level.ERROR, "vertx error: ", ex));
     }
 
@@ -24,9 +26,9 @@ public class MainVertxCore {
         var options = new DeploymentOptions()
                 .setWorker(false)
                 .setInstances(1);
-        logger.log(System.Logger.Level.INFO, "Deplopment starting...");
+        logger.info("Deplopment starting...");
         vertx.deployVerticleAndAwait(HttpServerVerticle::new, options);
-        logger.log(System.Logger.Level.INFO, "Deplopment completed");
+        logger.info("Deplopment completed");
 //        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
     }
 
@@ -35,9 +37,9 @@ public class MainVertxCore {
         var options = new DeploymentOptions()
                 .setWorker(false)
                 .setInstances(1);
-        logger.log(System.Logger.Level.INFO, "Deplopment starting...");
+        logger.info("Deplopment starting...");
         vertx.deployVerticleAndAwait(HttpServer2Verticle::new, options);
-        logger.log(System.Logger.Level.INFO, "Deplopment completed");
+        logger.info("Deplopment completed");
 //        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
     }
 
@@ -46,9 +48,9 @@ public class MainVertxCore {
         var options = new DeploymentOptions()
                 .setWorker(false)
                 .setInstances(1);
-        logger.log(System.Logger.Level.INFO, "Deplopment starting...");
+        logger.info("Deplopment starting...");
         vertx.deployVerticleAndAwait(NetServerVerticle::new, options);
-        logger.log(System.Logger.Level.INFO, "Deplopment completed");
+        logger.info("Deplopment completed");
     }
 
     public static void main(String[] args) {
