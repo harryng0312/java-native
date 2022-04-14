@@ -93,19 +93,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         })).subscribe().with(
                 itm -> logger.log(System.Logger.Level.INFO, "Client fired onConnected!"),
                 ex -> logger.log(System.Logger.Level.ERROR, "", ex));
-
-//                .body().map(buffer -> {
-//            var reqData = new JsonObject(buffer.getDelegate());
-//            var resData = new JsonObject()
-//                    .put("id", id)
-//                    .put("name", name)
-//                    .put("address", address)
-//                    .put("message", "Hello " + name + " connected from " + address)
-//                    .put("requestData", reqData);
-//            return resData;
-//        }).flatMap(context::json
-//        ).subscribe().with(itm -> {
-//        });
     }
 
     public void onFailure(RoutingContext context) {
