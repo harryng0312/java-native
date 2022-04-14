@@ -2,6 +2,7 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.buffer.Buffer;
@@ -74,9 +75,12 @@ public class HttpServer2Verticle extends AbstractVerticle {
     }
 
     public void onFailure(RoutingContext context) {
-        context.response().setStatusCode(context.statusCode()).end()
-                .subscribe().with(itm -> {
-                }, ex -> logger.log(System.Logger.Level.ERROR, "Route err:", ex));
+        context.response()
+                .setStatusCode(404)
+                .end()
+                .subscribe().with(itm -> {logger.log(System.Logger.Level.INFO, "OnFailure");},
+                        ex -> logger.log(System.Logger.Level.ERROR, "Route err:", ex));
+//        .reroute("/static/error.html");
     }
 
     @Override
@@ -85,13 +89,14 @@ public class HttpServer2Verticle extends AbstractVerticle {
         server = vertx.createHttpServer(new HttpServerOptions());
         eventBus = vertx.eventBus();
         final var rootRouter = Router.router(vertx);
-        rootRouter.route("/").failureHandler(this::onFailure);
+        rootRouter.route("/");//.failureHandler(this::onFailure);
+        rootRouter.errorHandler(404, this::onFailure);
 
         var wsRouter = Router.router(vertx);
         var wsHelloRouter = Router.router(vertx);
         wsHelloRouter.route("/:id")
-                .handler(this::onWsHello)
-                .failureHandler(this::onFailure);
+                .handler(this::onWsHello);
+//                .failureHandler(this::onFailure);
         wsRouter.mountSubRouter("/hello", wsHelloRouter);
 
         rootRouter.mountSubRouter("/ws", wsRouter);
