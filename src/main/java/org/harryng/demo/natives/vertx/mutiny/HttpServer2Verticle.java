@@ -2,7 +2,6 @@ package org.harryng.demo.natives.vertx.mutiny;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.AllowForwardHeaders;
@@ -12,7 +11,6 @@ import io.vertx.mutiny.core.http.HttpServer;
 import io.vertx.mutiny.core.http.HttpServerRequest;
 import io.vertx.mutiny.ext.web.Router;
 import io.vertx.mutiny.ext.web.RoutingContext;
-import io.vertx.mutiny.ext.web.handler.ErrorHandler;
 import io.vertx.mutiny.ext.web.handler.StaticHandler;
 
 import java.nio.charset.StandardCharsets;
