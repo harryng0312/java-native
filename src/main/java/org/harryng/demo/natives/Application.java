@@ -42,7 +42,7 @@ public class Application {
 //        logger.log(System.Logger.Level.INFO, "=====");
 //        File logbackFile = new File("config", "logback.xml_");
 //        System.setProperty("logback.configurationFile", logbackFile.getAbsolutePath());
-//        System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.Log4j2LogDelegateFactory");
+        System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.Log4j2LogDelegateFactory");
 //        InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
         logger.info("=====");
 

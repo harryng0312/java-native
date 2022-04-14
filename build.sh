@@ -31,7 +31,7 @@ cd ./build
 native-image \
 -J-Dsun.nio.ch.maxUpdateArraySize=100 \
 -J-DCoordinatorEnvironmentBean.transactionStatusManagerEnable=false \
--J-Dvertx.logger-delegate-factory-class-name=io.quarkus.vertx.core.runtime.VertxLogDelegateFactory \
+-J-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.Log4j2LogDelegateFactory\
 -J-Dvertx.disableDnsResolver=true \
 -J-Dio.netty.leakDetection.level=DISABLED \
 -J-Dio.netty.allocator.maxOrder=3 \
