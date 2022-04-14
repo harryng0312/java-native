@@ -2,7 +2,6 @@ package org.harryng.demo.natives;
 
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
-import org.h2.jdbc.JdbcConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -17,9 +16,8 @@ public class Db {
     private Connection connection = null;
 
     protected void initConn() throws SQLException, ClassNotFoundException {
-        var driver = new org.h2.Driver();
-        connection = new JdbcConnection(ResourcesUtil.getProperty("db.jdbc.url"), new Properties(),
-                ResourcesUtil.getProperty("db.username"), ResourcesUtil.getProperty("db.password"), false);
+        ResourcesUtil.getProperty("db.username");
+        ResourcesUtil.getProperty("db.password");
 //        Class.forName(ResourcesUtil.getProperty("db.jdbc.driver"));
 //        connection = DriverManager.getConnection(ResourcesUtil.getProperty("db.jdbc.url"),
 //                ResourcesUtil.getProperty("db.username"), ResourcesUtil.getProperty("db.password"));
