@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!-- Admin Navigator -->
+<ul th:fragment="nav-admin">
+    <li><a th:href="@{/admin/products}">Product Management</a></li>
+    <li><a th:href="@{/admin/orders}">Order Management</a></li>
+</ul>
+</body>
+</html>

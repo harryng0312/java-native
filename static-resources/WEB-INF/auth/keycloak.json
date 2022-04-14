@@ -1,0 +1,19 @@
+{
+  "realm": "test-realm",
+  "auth-server-url": "http://localhost:8180/auth/",
+  "ssl-required": "external",
+  "resource": "account",
+  "verify-token-audience": true,
+  "credentials": {
+    "jwt": {
+      "client-keystore-file": "classpath:ks/keystore.p12",
+      "client-keystore-type": "PKCS12",
+      "client-keystore-password": "account",
+      "client-key-password": "account",
+      "client-key-alias": "account",
+      "token-expiration": 10
+    }
+  },
+  "use-resource-role-mappings": true,
+  "confidential-port": 0
+}

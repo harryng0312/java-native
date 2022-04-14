@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{../layout/main-layout :: main-fragment(
+        title = ~{:: title},
+        mainContent = ~{:: #home-main-content}
+        )}">
+<head>
+    <title>Welcome</title>
+    <th:block id="home-static-resources">
+        <style>
+            .center {
+                max-width: 600px;
+                margin: auto;
+            }
+        </style>
+    </th:block>
+</head>
+<body>
+<div id="home-main-content" class="center">
+    <h2>Home content</h2>
+    <div>Content of Home Page</div>
+    Welcome <span th:text="${user!=null}?${user.screenName}:''"></span>
+</div>
+</body>
+</html>

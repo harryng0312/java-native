@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" type="text/css" th:href="@{/css/welcome.css}"/>
+    <script type="text/javascript" th:src="@{/js/jquery-3.4.1.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jose.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/util.js}"></script>
+    <script type="text/javascript" th:src="@{/js/crypto.js}"></script>
+    <script type="text/javascript" th:src="@{/js/auth.js}"></script>
+</head>
+
+<body>
+<div class="center">
+    <form id="authForm" method="post" action="login" onsubmit="return false;">
+        <table style="border: 0;">
+            <thead>
+            <tr>
+                <td th:text="#{login.title}"></td>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td th:text="#{login.username}"></td>
+            </tr>
+            <tr>
+                <td><input id="txtUsername" name="txtUsername" th:placeholder="#{login.username}" autocomplete="off"/>
+                </td>
+            </tr>
+            <tr>
+                <td th:text="#{login.password}"></td>
+            </tr>
+            <tr>
+                <td><input type="password" id="txtPassword" name="txtPassword" th:placeholder="#{login.password}"
+                           autocomplete="off"/></td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+            </tr>
+            </tbody>
+            <tfoot>
+            <tr>
+                <td>
+                    <input type="submit" id="submit" th:value="#{login.submit}" name="submit"/>
+                    <input id="tokenId" name="tokenId" type="hidden"/>
+                </td>
+            </tr>
+            </tfoot>
+        </table>
+    </form>
+</div>
+
+<script type="text/javascript">
+    let contextRoot = /*[[@{/}]]*/ '';
+    $(document).ready(function () {
+        $('#submit').bind("click", function () {
+            Authenticator.loginByUnamePasswd($('#txtUsername').val(), $('#txtPassword').val(), function (result) {
+                if (result) {
+                    let uname = $('#txtUsername').val().trim();
+                    // let expDate = new Date();
+                    // expDate.setTime(expDate.getTime() + (15 * 60 * 1000));
+                    // let expires = "; expires=" + expDate.toUTCString();
+                    // document.cookie = encodeURIComponent("tokenId") + "=" + encodeURIComponent(uname) + expires ;//+ "; path="+contextRoot;
+                    // document.cookie = encodeURIComponent("tokenId") + "=" + encodeURIComponent(uname)
+                    $(location).prop('href', 'afterLogin');
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+
+</html>

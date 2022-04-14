@@ -5,6 +5,7 @@ import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.AllowForwardHeaders;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.http.HttpServer;
@@ -82,7 +83,6 @@ public class HttpServer2Verticle extends AbstractVerticle {
                         ex -> logger.log(System.Logger.Level.ERROR, "Route err:", ex));
 //        .reroute("/static/error.html");
     }
-
     @Override
     public Uni<Void> asyncStart() {
         super.asyncStart();
@@ -90,6 +90,7 @@ public class HttpServer2Verticle extends AbstractVerticle {
         eventBus = vertx.eventBus();
         final var rootRouter = Router.router(vertx);
         rootRouter.route("/");//.failureHandler(this::onFailure);
+        rootRouter.allowForward(AllowForwardHeaders.ALL);
         rootRouter.errorHandler(404, this::onFailure);
 
         var wsRouter = Router.router(vertx);
@@ -98,7 +99,6 @@ public class HttpServer2Verticle extends AbstractVerticle {
                 .handler(this::onWsHello);
 //                .failureHandler(this::onFailure);
         wsRouter.mountSubRouter("/hello", wsHelloRouter);
-
         rootRouter.mountSubRouter("/ws", wsRouter);
 
         var staticHandler = StaticHandler.create("static-resources");
@@ -107,8 +107,6 @@ public class HttpServer2Verticle extends AbstractVerticle {
         staticRouter.route("/static/*").handler(staticHandler)
                 .failureHandler(this::onFailure);
         rootRouter.mountSubRouter("/", staticRouter);
-
-        var errorHandler = ErrorHandler.create(vertx);
 
         return server
                 .requestHandler(rootRouter)

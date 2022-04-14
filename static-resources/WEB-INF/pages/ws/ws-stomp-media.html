@@ -1,0 +1,184 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>Web Socket STOMP chat</title>
+    <link th:href="@{/css/socketio.css}" rel="stylesheet" type="text/css" />
+    <script th:src="@{/js/jquery-3.4.1.min.js}"></script>
+    <script th:src="@{/js/sockjs.min.js}"></script>
+    <script th:src="@{/js/stomp.min.js}"></script>
+    <script th:src="@{/js/util.js}"></script>
+</head>
+
+<body onload="disconnect()">
+    <div>
+        <div>
+            <input id="userId" type="hidden" th:value="${user.id}"/>
+            <div th:text="${user.screenName}"></div><br/>
+            <input type="text" id="from" th:placeholder="#{ws.chooseANickname}" th:value="${user.username}" />
+            <br/><br/>
+            <input type="text" id="txtTo" th:placeholder="#{ws.to}" /><br/>
+        </div>
+        <br/>
+        <div>
+            <button id="connect" onclick="connect();" th:text="#{ws.connect}"></button>
+            <button id="disconnect" disabled="disabled" onclick="disconnect();" th:text="#{ws.disconnect}"></button>
+        </div>
+        <br/>
+        <div id="conversationDiv">
+            <div id="content" class="chat-content"></div>
+            <br/>
+            <div id="message" class="chat-message" contenteditable="true"></div>
+            <br/>
+            <input id="fileChoose" type="file" hidden="hidden" />
+            <a id="lnkFileChoose" href="javascript:clickUploadLink(this);" th:text="#{ws.selectFile}"></a>
+            <br/>
+            <a id="lnkFileAbort" href="javascript:clickFileAbort(this);" th:text="abort"></a>
+            <br/><br/>
+            <button id="sendMessage" onclick="sendMessage();" th:text="#{ws.send}">Send</button>
+            <p id="response"></p>
+        </div>
+    </div>
+    <script type="text/javascript">
+        let stompClient = null;
+        let sockEndpoint = "/web/ws/chat";
+        let sendMsgEndpoint = "/app/ws/chat/user";
+        let sendFileEndpoint = "/app/ws/file/user";
+        let listenMsgEndpoint = "/queue/messages";
+        let listenFileEndpoint = "/queue/files";
+        // let uploadBufferSize = 128 * 1024;//256 * 1024;
+        let fileReaderUtil = null;
+
+        function setConnected(connected) {
+            document.getElementById('connect').disabled = connected;
+            document.getElementById('disconnect').disabled = !connected;
+            document.getElementById('conversationDiv').style.visibility = connected ? 'visible' : 'hidden';
+            document.getElementById('content').innerHTML = '';
+
+            document.getElementById("from").disabled = connected;
+            document.getElementById("txtTo").disabled = connected;
+        }
+
+        function connect() {
+            let socket = new SockJS(sockEndpoint);
+            stompClient = Stomp.over(socket);
+            stompClient.connect({
+                "userId": document.getElementById('userId').value
+            }, (frame) => {
+                setConnected(true);
+                let from = document.getElementById('from').value;
+                let to = document.getElementById('txtTo').value;
+                console.log('Connected: ' + frame);
+                stompClient.subscribe(listenMsgEndpoint + `/${to}`, receivedMessage);
+                stompClient.subscribe(listenFileEndpoint + `/${to}` , notifySendFile);
+            }, (error) => {
+                console.log(`${error.error}`)
+            });
+        }
+
+        function disconnect() {
+            if (stompClient != null) {
+                stompClient.unsubscribe();
+                stompClient.disconnect();
+            }
+            setConnected(false);
+            console.log("Disconnected");
+        }
+
+        function receivedMessage(messageOutput) {
+            showMessageOutput(JSON.parse(messageOutput.body));
+        }
+
+        function notifySendFile(msg) {
+            let reply = JSON.parse(msg.body);
+            if(reply.content === "upload ok"){
+                fileReaderUtil.seek();
+            }
+        }
+
+        function sendMessage() {
+            let from = document.getElementById('from').value;
+            let to = document.getElementById("txtTo").value;
+            let data = $("#message").html();
+            let msg = JSON.stringify({
+                "from": from,
+                "to": to,
+                "type": "text",
+                "content": data
+            });
+            stompClient.send(sendMsgEndpoint, {}, msg);
+            $("#message").html("");
+        }
+
+        function sendFilePart(from, to, headers, dataBuff){
+            let data = null;
+            // for(let i=0; i < dataBuff.byteLength; i += uploadBufferSize){
+            //     let offsetBuffEnd = Math.min(i + uploadBufferSize, dataBuff.byteLength);
+                data = dataBuff;//dataBuff.slice(i, offsetBuffEnd);
+                let msg = JSON.stringify({
+                    "from": from,
+                    "to": to,
+                    "type": "file-part",
+                    "content": DataUtil.byteArrayToBase64(new Uint8Array(data))
+                });
+                stompClient.send(sendFileEndpoint, headers, msg);
+            // }
+        }
+
+        function sendFile(file) {
+            let from = document.getElementById('from').value;
+            let to = document.getElementById("txtTo").value;
+            let headers = {"fileName":file.name};
+            let uploadHandler = (dataBuff) => {
+                sendFilePart(from, to, headers, dataBuff);
+            };
+            let doneHandler = (that) => {
+                console.log("upload done!");
+                // let msg = JSON.stringify({
+                //     "from": from,
+                //     "to": to,
+                //     "type": "file-metadata",
+                //     "content": DataUtil.bytesToStr(GTextEncoder.encode("done"))
+                // });
+                // stompClient.send(sendFileEndpoint, headers, msg);
+            };
+            let errorHandler = (evt) => {
+                console.log(`${evt.error}`)
+            };
+            let params = new FileReaderUtilParams();
+            params.file = file;
+            params.uploadCallback = uploadHandler;
+            params.errorCallback = errorHandler;
+            params.uploadDoneCallback = doneHandler;
+            fileReaderUtil = new FileReaderUtil(params);
+            fileReaderUtil.start();
+        }
+
+        function clickUploadLink(that) {
+            $("#fileChoose:hidden").val(null);
+            $("#fileChoose:hidden").trigger('click');
+        }
+
+        function clickFileAbort(that){
+            fileReaderUtil.abort();
+        }
+
+        function showMessageOutput(messageOutput) {
+            let chatContent = $("#content");
+            let text = document.createTextNode(`${messageOutput.time}:${messageOutput.from}:${messageOutput.content}`);
+            let p = document.createElement('p');
+            p.style.wordWrap = 'break-word';
+            p.appendChild(text);
+            chatContent.append(p);
+        }
+
+        $(document).ready(function() {
+            $("#fileChoose:hidden").change((e) => {
+                if (e.target && e.target.files.length > 0) {
+                    sendFile(e.target.files[0]);
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

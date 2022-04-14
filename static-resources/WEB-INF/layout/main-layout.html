@@ -1,0 +1,46 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:fragment="main-fragment"
+      th:with="
+        title=${title!=null}?${title}:~{},
+        otherStaticResources=${otherStaticResources!=null}?${otherStaticResources}:~{},
+        header=${header!=null}?${header}:~{../fragment/app-fragment :: home-header},
+        nav=${nav!=null}?${nav}:~{../fragment/nav-fragment :: nav-default},
+        mainContent=${mainContent!=null}?${mainContent}:~{},
+        footer=${footer!=null}?${footer}:~{../fragment/app-fragment :: copyright}
+">
+<!--<html xmlns:th="http://www.thymeleaf.org"-->
+<!--      th:fragment="main-fragment (title, otherStaticResources, header, nav, mainContent, footer)"-->
+<!--      th:with="title=${title}?:~{},-->
+<!--        otherStaticResources=${otherStaticResources}?:~{},-->
+<!--        header=${header}?:~{../fragment/app-fragment :: home-header},-->
+<!--        nav=${nav}?:~{../fragment/nav-fragment :: nav-default},-->
+<!--        mainContent=${mainContent}?:~{},-->
+<!--        footer=${footer}?:~{../fragment/app-fragment :: copyright}">-->
+<head>
+    <meta charset="UTF-8"/>
+    <title th:replace="${title}">Page 1 Title</title>
+    <th:block th:replace="~{../fragment/app-fragment :: default-home-static-resources}"/>
+    <!-- Other javascript, css source files -->
+    <th:block th:replace="${otherStaticResources}"/>
+</head>
+<body>
+<header th:insert="${header}">
+</header>
+<section>
+    <nav th:insert="${nav}">
+        <ul>
+            <li><a href="#">Page 1</a></li>
+            <li><a href="#">Page 2</a></li>
+        </ul>
+    </nav>
+    <article th:insert="${mainContent}">
+        <h1>Page 1</h1>
+        <p>Main content of Page 1</p>
+    </article>
+</section>
+<footer th:insert="${footer}">
+    <p>Footer</p>
+</footer>
+</body>
+</html>

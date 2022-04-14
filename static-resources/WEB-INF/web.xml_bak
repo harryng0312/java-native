@@ -1,0 +1,32 @@
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+         http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+         version="3.1">
+    <module-name>demo communication</module-name>
+
+    <!-- sso configuration -->
+    <filter>
+        <filter-name>keycloak-filter</filter-name>
+        <filter-class>org.keycloak.adapters.servlet.KeycloakOIDCFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>keycloak-filter</filter-name>
+<!--        <url-pattern>/keycloak/*</url-pattern>-->
+        <url-pattern>/api/*</url-pattern>
+    </filter-mapping>
+    <!-- sso configuration -->
+
+    <!-- Additional config omitted -->
+    <servlet>
+        <servlet-name>mvc</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>mvc</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+    <!-- Additional config omitted -->
+
+</web-app>
