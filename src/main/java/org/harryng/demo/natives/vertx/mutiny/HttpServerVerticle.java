@@ -14,7 +14,10 @@ import io.vertx.mutiny.ext.web.RoutingContext;
 import io.vertx.mutiny.ext.web.handler.StaticHandler;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class HttpServerVerticle extends AbstractVerticle {
@@ -59,6 +62,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public void onWsHello(RoutingContext context) {
         String address = context.request().connection().remoteAddress().hostAddress()
                 + " " + context.request().connection().remoteAddress().port();
+        var pingId = new AtomicLong();
         var queryParams = context.queryParams();
         var id = context.pathParam("id");
         var name = queryParams.contains("name") ? queryParams.get("name") : "unknown";
@@ -88,10 +92,19 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.log(System.Logger.Level.INFO, "Client websocket closed!");
         }).endHandler(() -> {
             logger.log(System.Logger.Level.INFO, "WebSocket is end!");
+            context.vertx().cancelTimer(pingId.get());
         }).exceptionHandler(ex -> {
             logger.log(System.Logger.Level.ERROR, "", ex);
         })).subscribe().with(
-                itm -> logger.log(System.Logger.Level.INFO, "Client fired onConnected!"),
+                serverWebSocket -> {
+                    logger.log(System.Logger.Level.INFO, "Client fired onConnected!");
+                    var preodicId = context.vertx().setPeriodic(5_000, timerId -> {
+                        serverWebSocket.writePing(Buffer.buffer("Ping[" + LocalDateTime.now().format(
+                                DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "]")).subscribe().with(v ->
+                                logger.log(System.Logger.Level.INFO, "Ping client"));
+                    });
+                    pingId.set(preodicId);
+                },
                 ex -> logger.log(System.Logger.Level.ERROR, "", ex));
     }
 
