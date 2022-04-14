@@ -31,7 +31,7 @@ cd ./build
 native-image \
 -J-Dsun.nio.ch.maxUpdateArraySize=100 \
 -J-DCoordinatorEnvironmentBean.transactionStatusManagerEnable=false \
--J-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.Log4j2LogDelegateFactory\
+-J-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.Log4j2LogDelegateFactory \
 -J-Dvertx.disableDnsResolver=true \
 -J-Dio.netty.leakDetection.level=DISABLED \
 -J-Dio.netty.allocator.maxOrder=3 \
@@ -42,11 +42,11 @@ native-image \
 -J--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
 -J--add-opens=java.base/java.text=ALL-UNNAMED \
 --gc=serial \
--H:InitialCollectionPolicy=com.oracle.svm.core.genscavenge.CollectionPolicy\$BySpaceAndTime \
+--no-fallback \
 -H:+JNI \
 -H:+AllowFoldMethods \
 -J-Djava.awt.headless=true \
--H:FallbackThreshold=1 \
+-H:FallbackThreshold=0 \
 -H:+ReportExceptionStackTraces \
 -H:-AddAllCharsets \
 -H:EnableURLProtocols=http,https \

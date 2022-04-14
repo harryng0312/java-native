@@ -6,6 +6,9 @@
       },
       {
         "pattern": "[a-zA-Z0-9]+\\.xml"
+      },
+      {
+        "pattern": "static\\-resources\/[a-zA-Z0-9]+"
       }
     ],
     "excludes": []
