@@ -139,14 +139,14 @@ public class HttpServer2Verticle extends AbstractVerticle {
                             var params = obj.getJsonArray("params", new JsonArray());
                             // start trans scope
                             dbConnector.withTransaction(sqlConnection -> {
-                                                var result = sqlConnection.preparedQuery(obj.getString("sql"))
-                                                        .execute(Tuple.from(params.stream().toList()));
-                                                return result.invoke(Unchecked.consumer(rows -> {
-                                                    logger.info("Sql Connection is closing!");
+                                        var result = sqlConnection.preparedQuery(obj.getString("sql"))
+                                                .execute(Tuple.from(params.stream().toList()));
+                                        return result.invoke(Unchecked.consumer(rows -> {
+                                            logger.info("Sql Connection is closing!");
 //                                                    throw new Exception("rollback test");
-                                                }));
-                                            }
-                                    )
+//                                                    return rows;
+                                        }));
+                                    })
                                     .map(rows -> {
                                         logger.info("trans is commited!");
                                         logger.info(rows.rowCount() + " row(s) effected");
@@ -158,18 +158,18 @@ public class HttpServer2Verticle extends AbstractVerticle {
                                     })
                                     .onFailure().invoke(throwable -> {
                                         logger.info("trans is rolled back!");
-                                        logger.error("", throwable);
+//                                        logger.error("Trans ex1:", throwable);
                                     })
                                     .onItemOrFailure().invoke((rows, ex) -> {
-//                                logger.info("trans is completed!");
-//                                logger.info("Sql Connection is closing!");
-//                                dbConnector.releaseSqlConnection(sqlConnection);
-                                    }).onFailure().invoke(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
-                                            .subscribe().with(v -> logger.info("Send ex to client!"),
-                                                    ex1 -> logger.error("Send ex to client!", ex1)))
-                                    .subscribe().with(rows -> logger.info("Trans is complete!"),
-                                            ex -> logger.error("Trans ex:", ex));
-
+                                        logger.info("trans is completed!");
+                                    })
+                                    .onFailure().invoke(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                                            .subscribe().with(v -> logger.info("Send ex to client!")))//,
+//                                                    ex1 -> logger.error("Send ex to client!", ex1))
+//                                    )
+                                    .subscribe().with(rows -> logger.info("Trans is complete!")//,
+//                                            ex -> logger.error("Trans ex:", ex)
+                                    );
                             // end trans scope
                         }).drainHandler(() -> {
                         }).closeHandler(() -> {
@@ -180,7 +180,7 @@ public class HttpServer2Verticle extends AbstractVerticle {
                                 }, ex1 -> {
                                 })
                         )
-        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
+        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("Socket ex:", ex));
     }
 
     public void onFailure(RoutingContext context) {
