@@ -4,8 +4,11 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.SqlClient;
+import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.sqlclient.PoolOptions;
+
+import java.util.function.Function;
 
 public class DbConnector {
     private Vertx vertx = null;
@@ -19,7 +22,7 @@ public class DbConnector {
     }
 
     public static DbConnector createDbConnector(Vertx vertx, String host, int port, String database, String user,
-                                          String password, int poolsize) {
+                                                String password, int poolsize) {
         return new DbConnector(vertx, host, port, database, user, password, poolsize);
     }
 
@@ -39,8 +42,20 @@ public class DbConnector {
         return sqlClient;
     }
 
-    public Uni<Void> releaseSqlClient() {
+    public Uni<Void> closeSqlClient() {
         return sqlClient.close();
+    }
+
+    public <T> Uni<T> withTransaction(Function<SqlConnection, Uni<T>> function){
+        return PgPool.pool().withTransaction(function);
+    }
+
+    public Uni<SqlConnection> getSqlConnection() {
+        return PgPool.pool(vertx, connectOptions, poolOptions).getConnection();
+    }
+
+    public void releaseSqlConnection(SqlConnection sqlConnection) {
+        sqlConnection.closeAndForget();
     }
 
 }

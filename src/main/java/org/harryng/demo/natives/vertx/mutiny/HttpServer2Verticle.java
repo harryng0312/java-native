@@ -1,7 +1,5 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
@@ -20,7 +18,6 @@ import io.vertx.mutiny.ext.web.handler.StaticHandler;
 import io.vertx.mutiny.sqlclient.Tuple;
 import org.harryng.demo.natives.ResourcesUtil;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class HttpServer2Verticle extends AbstractVerticle {
@@ -73,7 +70,7 @@ public class HttpServer2Verticle extends AbstractVerticle {
                             }, ex -> serverWebSocket.writeTextMessage(ex.getMessage()).subscribe().with(
                                     v -> logger.info("Send error to client!"), ex1 -> logger.error("", ex1)));
                 }).drainHandler(() -> {
-                }).closeHandler(dbConnector::releaseSqlClient).endHandler(() -> {
+                }).closeHandler(dbConnector::closeSqlClient).endHandler(() -> {
                 }).exceptionHandler(ex -> serverWebSocket.writeTextMessage(ex.getMessage()).subscribe().with(v -> {
                 }, ex1 -> {
                 }))
@@ -82,35 +79,50 @@ public class HttpServer2Verticle extends AbstractVerticle {
 
     public void onWsUpdateUser(RoutingContext context) {
         var dbConnector = DbConnector.createDbConnector(vertx, host, port, db, user, passwd, poolsize);
-        var sqlClient = dbConnector.getSqlClient();
-        context.request().toWebSocket().invoke(serverWebSocket ->
+        var sqlConn = dbConnector.getSqlConnection();
+        context.request().toWebSocket().map(serverWebSocket ->
                 serverWebSocket.handler(buffer -> {
                     logger.info("Client call:");
                     var obj = new JsonObject(new String(buffer.getBytes(), StandardCharsets.UTF_8));
-                    var params = obj.getJsonArray("params");
-                    if (params == null) {
-                        params = new JsonArray();
-                    }
-                    sqlClient.preparedQuery(obj.getString("sql")).execute(Tuple.tuple(params.stream().toList()))
-                            .subscribe().with(rows -> {
-                                logger.info(rows.rowCount() + "row(s) effected");
-                                var result = new JsonObject().put("total", rows.rowCount());
-                                serverWebSocket.writeTextMessage(result.toString())
-                                        .subscribe().with(v -> logger.info("Send result to client!"),
-                                                ex -> logger.error("", ex));
-                            }, ex -> {
-                                serverWebSocket.writeTextMessage(ex.getMessage())
-                                        .subscribe().with(v -> logger.info("Send error to client!"),
-                                                ex2 -> logger.error("", ex));
-                            });
+                    var params = obj.getJsonArray("params", new JsonArray());
+                    // start trans scope
+                    sqlConn.flatMap(sqlConnection -> sqlConnection.begin().flatMap(transaction ->
+                            sqlConnection.preparedQuery(obj.getString("sql"))
+                                    .execute(Tuple.from(params.stream().toList()))
+                                    .map(rows -> {
+                                        logger.info("trans is commited!");
+                                        transaction.commitAndForget();
+                                        return rows;
+                                    })
+                                    .onFailure().invoke(ex -> {
+                                        logger.info("trans is rolled back!");
+                                        transaction.rollbackAndForget();
+                                    })
+                                    .onItemOrFailure().invoke((rows, ex) -> {
+                                        logger.info("trans is completed!");
+                                    })
+                    ).onItemOrFailure().invoke((rows, ex) -> {
+                        logger.info("Sql Connection is closing!");
+                        dbConnector.releaseSqlConnection(sqlConnection);
+                    }).map(rows -> {
+                        logger.info(rows.rowCount() + " row(s) effected");
+                        var result = new JsonObject().put("total", rows.rowCount());
+                        serverWebSocket.writeTextMessage(result.toString())
+                                .subscribe().with(v -> logger.info("Send result to client!"),
+                                        ex -> logger.error("Send ex to client!", ex));
+                        return rows;
+                    })).subscribe().with(rows -> logger.info("Trans is complete!"),
+                            ex -> logger.error("Trans ex:", ex));
+                    // end trans scope
                 }).drainHandler(() -> {
-
-                }).closeHandler(dbConnector::releaseSqlClient).endHandler(() -> {
+                }).closeHandler(() -> {
+                }).endHandler(() -> {
                     logger.info("Client disconnected!");
-                }).exceptionHandler(Unchecked.consumer(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                }).exceptionHandler(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
                         .subscribe().with(v -> {
                         }, ex1 -> {
-                        })))
+                        })
+                )
         ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
     }
 
