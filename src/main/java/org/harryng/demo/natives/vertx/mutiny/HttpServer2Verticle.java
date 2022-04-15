@@ -99,6 +99,7 @@ public class HttpServer2Verticle extends AbstractVerticle {
                                             })
                                             .onItemOrFailure().invoke((rows, ex) -> {
                                                 logger.info("trans is completed!");
+                                                transaction.completionAndForget();
                                             })
                             ).onItemOrFailure().invoke((rows, ex) -> {
                                 logger.info("Sql Connection is closing!");
@@ -128,6 +129,60 @@ public class HttpServer2Verticle extends AbstractVerticle {
         ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
     }
 
+    public void onWsUpdate2User(RoutingContext context) {
+        var dbConnector = DbConnector.createDbConnector(vertx, host, port, db, user, passwd, poolsize);
+        var sqlConn = dbConnector.getSqlConnection();
+        context.request().toWebSocket().map(serverWebSocket ->
+                        serverWebSocket.handler(buffer -> {
+                            logger.info("Client call:");
+                            var obj = new JsonObject(new String(buffer.getBytes(), StandardCharsets.UTF_8));
+                            var params = obj.getJsonArray("params", new JsonArray());
+                            // start trans scope
+                            dbConnector.withTransaction(sqlConnection -> {
+                                                var result = sqlConnection.preparedQuery(obj.getString("sql"))
+                                                        .execute(Tuple.from(params.stream().toList()));
+                                                return result.invoke(rows -> {
+                                                    logger.info("Sql Connection is closing!");
+//                                                    dbConnector.releaseSqlConnection(sqlConnection);
+                                                });
+                                            }
+                                    )
+                                    .map(rows -> {
+                                        logger.info("trans is commited!");
+                                        logger.info(rows.rowCount() + " row(s) effected");
+                                        var result = new JsonObject().put("total", rows.rowCount());
+                                        serverWebSocket.writeTextMessage(result.toString())
+                                                .subscribe().with(v -> logger.info("Send result to client!"),
+                                                        ex -> logger.error("Send ex to client!", ex));
+                                        return rows;
+                                    })
+                                    .onFailure().invoke(throwable -> {
+                                        logger.info("trans is rolled back!");
+                                        logger.error("", throwable);
+                                    })
+                                    .onItemOrFailure().invoke((rows, ex) -> {
+//                                logger.info("trans is completed!");
+//                                logger.info("Sql Connection is closing!");
+//                                dbConnector.releaseSqlConnection(sqlConnection);
+                                    }).onFailure().invoke(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                                            .subscribe().with(v -> logger.info("Send ex to client!"),
+                                                    ex1 -> logger.error("Send ex to client!", ex1)))
+                                    .subscribe().with(rows -> logger.info("Trans is complete!"),
+                                            ex -> logger.error("Trans ex:", ex));
+
+                            // end trans scope
+                        }).drainHandler(() -> {
+                        }).closeHandler(() -> {
+                        }).endHandler(() -> {
+                            logger.info("Client disconnected!");
+                        }).exceptionHandler(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                                .subscribe().with(v -> {
+                                }, ex1 -> {
+                                })
+                        )
+        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
+    }
+
     public void onFailure(RoutingContext context) {
         context.response()
                 .setStatusCode(404)
@@ -151,16 +206,15 @@ public class HttpServer2Verticle extends AbstractVerticle {
 
         var wsRouter = Router.router(vertx);
         var wsQueryUser = Router.router(vertx);
-        wsQueryUser.route("/")
-                .handler(this::onWsQueryUser);
-//                .failureHandler(this::onFailure);
+        wsQueryUser.route("/").handler(this::onWsQueryUser);
         wsRouter.mountSubRouter("/query-user", wsQueryUser);
         var wsUpdateUser = Router.router(vertx);
-        wsUpdateUser.route("/")
-                .handler(this::onWsUpdateUser);
-//                .failureHandler(this::onFailure);
-        wsRouter.mountSubRouter("/update-user", wsUpdateUser);
+        wsUpdateUser.route("/").handler(this::onWsUpdateUser);
+        var wsUpdate2User = Router.router(vertx);
+        wsUpdate2User.route("/").handler(this::onWsUpdate2User);
 
+        wsRouter.mountSubRouter("/update-user", wsUpdateUser);
+        wsRouter.mountSubRouter("/update2-user", wsUpdate2User);
         rootRouter.mountSubRouter("/ws", wsRouter);
 
         var staticHandler = StaticHandler.create("static-resources");

@@ -47,7 +47,7 @@ public class DbConnector {
     }
 
     public <T> Uni<T> withTransaction(Function<SqlConnection, Uni<T>> function){
-        return PgPool.pool().withTransaction(function);
+        return PgPool.pool(vertx, connectOptions, poolOptions).withTransaction(function);
     }
 
     public Uni<SqlConnection> getSqlConnection() {
