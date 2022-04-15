@@ -1,6 +1,9 @@
 package org.harryng.demo.natives.vertx.mutiny;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.impl.logging.Logger;
@@ -17,8 +20,8 @@ import io.vertx.mutiny.ext.web.handler.StaticHandler;
 import io.vertx.mutiny.sqlclient.Tuple;
 import org.harryng.demo.natives.ResourcesUtil;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 public class HttpServer2Verticle extends AbstractVerticle {
     static Logger logger = LoggerFactory.getLogger(HttpServer2Verticle.class);
@@ -26,9 +29,15 @@ public class HttpServer2Verticle extends AbstractVerticle {
 
     private EventBus eventBus = null;
 
-    public void onWsSql(RoutingContext context) {
-        var dbConnector = DbConnector.createDbConnector(vertx, "localhost", 5432,
-                "test_db", "test_db", "test_db", 3);
+    final String host = "localhost";
+    final int port = 5432;
+    final String db = "test_db";
+    final String user = "test_db";
+    final String passwd = "test_db";
+    final int poolsize = 5;
+
+    public void onWsQueryUser(RoutingContext context) {
+        var dbConnector = DbConnector.createDbConnector(vertx, host, port, db, user, passwd, poolsize);
         var sqlClient = dbConnector.getSqlClient();
         context.request().toWebSocket().invoke(
                 serverWebSocket -> serverWebSocket.handler(buffer -> {
@@ -57,15 +66,52 @@ public class HttpServer2Verticle extends AbstractVerticle {
                                 var resultJson = new JsonObject();
                                 var recordsJson = new JsonArray();
                                 rowset.forEach(recordsJson::add);
-                                resultJson.put("total", rowset.size())
+                                resultJson.put("total", rowset.rowCount())
                                         .put("results", recordsJson);
                                 serverWebSocket.writeTextMessage(resultJson.toString())
                                         .subscribe().with(v -> logger.info("Send result to client!"));
-                            });
+                            }, ex -> serverWebSocket.writeTextMessage(ex.getMessage()).subscribe().with(
+                                    v -> logger.info("Send error to client!"), ex1 -> logger.error("", ex1)));
                 }).drainHandler(() -> {
                 }).closeHandler(dbConnector::releaseSqlClient).endHandler(() -> {
-                }).exceptionHandler(ex -> logger.error("", ex))
-        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"));
+                }).exceptionHandler(ex -> serverWebSocket.writeTextMessage(ex.getMessage()).subscribe().with(v -> {
+                }, ex1 -> {
+                }))
+        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
+    }
+
+    public void onWsUpdateUser(RoutingContext context) {
+        var dbConnector = DbConnector.createDbConnector(vertx, host, port, db, user, passwd, poolsize);
+        var sqlClient = dbConnector.getSqlClient();
+        context.request().toWebSocket().invoke(serverWebSocket ->
+                serverWebSocket.handler(buffer -> {
+                    logger.info("Client call:");
+                    var obj = new JsonObject(new String(buffer.getBytes(), StandardCharsets.UTF_8));
+                    var params = obj.getJsonArray("params");
+                    if (params == null) {
+                        params = new JsonArray();
+                    }
+                    sqlClient.preparedQuery(obj.getString("sql")).execute(Tuple.tuple(params.stream().toList()))
+                            .subscribe().with(rows -> {
+                                logger.info(rows.rowCount() + "row(s) effected");
+                                var result = new JsonObject().put("total", rows.rowCount());
+                                serverWebSocket.writeTextMessage(result.toString())
+                                        .subscribe().with(v -> logger.info("Send result to client!"),
+                                                ex -> logger.error("", ex));
+                            }, ex -> {
+                                serverWebSocket.writeTextMessage(ex.getMessage())
+                                        .subscribe().with(v -> logger.info("Send error to client!"),
+                                                ex2 -> logger.error("", ex));
+                            });
+                }).drainHandler(() -> {
+
+                }).closeHandler(dbConnector::releaseSqlClient).endHandler(() -> {
+                    logger.info("Client disconnected!");
+                }).exceptionHandler(Unchecked.consumer(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                        .subscribe().with(v -> {
+                        }, ex1 -> {
+                        })))
+        ).subscribe().with(serverWebSocket -> logger.info("Client connected!"), ex -> logger.error("", ex));
     }
 
     public void onFailure(RoutingContext context) {
@@ -90,11 +136,17 @@ public class HttpServer2Verticle extends AbstractVerticle {
         rootRouter.errorHandler(404, this::onFailure);
 
         var wsRouter = Router.router(vertx);
-        var wsHelloRouter = Router.router(vertx);
-        wsHelloRouter.route("/")
-                .handler(this::onWsSql);
+        var wsQueryUser = Router.router(vertx);
+        wsQueryUser.route("/")
+                .handler(this::onWsQueryUser);
 //                .failureHandler(this::onFailure);
-        wsRouter.mountSubRouter("/sql", wsHelloRouter);
+        wsRouter.mountSubRouter("/query-user", wsQueryUser);
+        var wsUpdateUser = Router.router(vertx);
+        wsUpdateUser.route("/")
+                .handler(this::onWsUpdateUser);
+//                .failureHandler(this::onFailure);
+        wsRouter.mountSubRouter("/update-user", wsUpdateUser);
+
         rootRouter.mountSubRouter("/ws", wsRouter);
 
         var staticHandler = StaticHandler.create("static-resources");
