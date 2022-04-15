@@ -5,11 +5,9 @@ import io.smallrye.mutiny.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.AllowForwardHeaders;
-import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.http.HttpServer;
 import io.vertx.mutiny.core.http.HttpServerRequest;
@@ -17,9 +15,10 @@ import io.vertx.mutiny.ext.web.Router;
 import io.vertx.mutiny.ext.web.RoutingContext;
 import io.vertx.mutiny.ext.web.handler.StaticHandler;
 import io.vertx.mutiny.sqlclient.Tuple;
-import io.vertx.sqlclient.PrepareOptions;
+import org.harryng.demo.natives.ResourcesUtil;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public class HttpServer2Verticle extends AbstractVerticle {
     static Logger logger = LoggerFactory.getLogger(HttpServer2Verticle.class);
@@ -27,7 +26,7 @@ public class HttpServer2Verticle extends AbstractVerticle {
 
     private EventBus eventBus = null;
 
-    public void onWsHello(RoutingContext context) {
+    public void onWsSql(RoutingContext context) {
         var dbConnector = DbConnector.createDbConnector(vertx, "localhost", 5432,
                 "test_db", "test_db", "test_db", 3);
         var sqlClient = dbConnector.getSqlClient();
@@ -35,25 +34,32 @@ public class HttpServer2Verticle extends AbstractVerticle {
                 serverWebSocket -> serverWebSocket.handler(buffer -> {
                     logger.info("Client call:");
                     var obj = new JsonObject(new String(buffer.getBytes(), StandardCharsets.UTF_8));
+                    var params = obj.getJsonArray("params");
+                    if (params == null) {
+                        params = new JsonArray();
+                    }
                     sqlClient.preparedQuery(obj.getString("sql"))
                             .mapping(row -> new JsonObject()
-                                    .put("id", row.getLong("id"))
-                                    .put("createdDate", row.getLocalDateTime("created_date"))
-                                    .put("modifiedDate", row.getLocalDateTime("modified_date"))
+                                    .put("id", row.getLong("id_"))
+                                    .put("createdDate", ResourcesUtil.getDateTimeFormatter()
+                                            .format(row.getLocalDateTime("created_date")))
+                                    .put("modifiedDate", ResourcesUtil.getDateTimeFormatter()
+                                            .format(row.getLocalDateTime("modified_date")))
                                     .put("status", row.getString("status"))
                                     .put("screenname", row.getString("screenname"))
                                     .put("username", row.getString("username"))
                                     .put("password", row.getString("password_"))
-                                    .put("dob", row.getLocalDate("dob"))
+                                    .put("dob", ResourcesUtil.getDateFormatter()
+                                            .format(row.getLocalDate("dob")))
                                     .put("passwdEncryptedMethod", row.getString("passwd_encrypted_method"))
-                            ).execute(Tuple.tuple(obj.getJsonArray("params").getList()))
+                            ).execute(Tuple.tuple(params.stream().toList()))
                             .subscribe().with(rowset -> {
                                 var resultJson = new JsonObject();
                                 var recordsJson = new JsonArray();
                                 rowset.forEach(recordsJson::add);
                                 resultJson.put("total", rowset.size())
                                         .put("results", recordsJson);
-                                serverWebSocket.writeTextMessage(resultJson.encode())
+                                serverWebSocket.writeTextMessage(resultJson.toString())
                                         .subscribe().with(v -> logger.info("Send result to client!"));
                             });
                 }).drainHandler(() -> {
@@ -85,10 +91,10 @@ public class HttpServer2Verticle extends AbstractVerticle {
 
         var wsRouter = Router.router(vertx);
         var wsHelloRouter = Router.router(vertx);
-        wsHelloRouter.route("/:id")
-                .handler(this::onWsHello);
+        wsHelloRouter.route("/")
+                .handler(this::onWsSql);
 //                .failureHandler(this::onFailure);
-        wsRouter.mountSubRouter("/hello", wsHelloRouter);
+        wsRouter.mountSubRouter("/sql", wsHelloRouter);
         rootRouter.mountSubRouter("/ws", wsRouter);
 
         var staticHandler = StaticHandler.create("static-resources");
