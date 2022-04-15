@@ -87,32 +87,34 @@ public class HttpServer2Verticle extends AbstractVerticle {
                     var params = obj.getJsonArray("params", new JsonArray());
                     // start trans scope
                     sqlConn.flatMap(sqlConnection -> sqlConnection.begin().flatMap(transaction ->
-                            sqlConnection.preparedQuery(obj.getString("sql"))
-                                    .execute(Tuple.from(params.stream().toList()))
-                                    .map(rows -> {
-                                        logger.info("trans is commited!");
-                                        transaction.commitAndForget();
-                                        return rows;
-                                    })
-                                    .onFailure().invoke(ex -> {
-                                        logger.info("trans is rolled back!");
-                                        transaction.rollbackAndForget();
-                                    })
-                                    .onItemOrFailure().invoke((rows, ex) -> {
-                                        logger.info("trans is completed!");
-                                    })
-                    ).onItemOrFailure().invoke((rows, ex) -> {
-                        logger.info("Sql Connection is closing!");
-                        dbConnector.releaseSqlConnection(sqlConnection);
-                    }).map(rows -> {
-                        logger.info(rows.rowCount() + " row(s) effected");
-                        var result = new JsonObject().put("total", rows.rowCount());
-                        serverWebSocket.writeTextMessage(result.toString())
-                                .subscribe().with(v -> logger.info("Send result to client!"),
-                                        ex -> logger.error("Send ex to client!", ex));
-                        return rows;
-                    })).subscribe().with(rows -> logger.info("Trans is complete!"),
-                            ex -> logger.error("Trans ex:", ex));
+                                    sqlConnection.preparedQuery(obj.getString("sql"))
+                                            .execute(Tuple.from(params.stream().toList()))
+                                            .invoke(rows -> {
+                                                logger.info("trans is commited!");
+                                                transaction.commitAndForget();
+                                            })
+                                            .onFailure().invoke(ex -> {
+                                                logger.info("trans is rolled back!");
+                                                transaction.rollbackAndForget();
+                                            })
+                                            .onItemOrFailure().invoke((rows, ex) -> {
+                                                logger.info("trans is completed!");
+                                            })
+                            ).onItemOrFailure().invoke((rows, ex) -> {
+                                logger.info("Sql Connection is closing!");
+                                dbConnector.releaseSqlConnection(sqlConnection);
+                            }).map(rows -> {
+                                logger.info(rows.rowCount() + " row(s) effected");
+                                var result = new JsonObject().put("total", rows.rowCount());
+                                serverWebSocket.writeTextMessage(result.toString())
+                                        .subscribe().with(v -> logger.info("Send result to client!"),
+                                                ex -> logger.error("Send ex to client!", ex));
+                                return rows;
+                            })).onFailure().invoke(ex -> serverWebSocket.writeTextMessage(ex.getMessage())
+                                    .subscribe().with(v -> logger.info("Send ex to client!"),
+                                            ex1 -> logger.error("Send ex to client!", ex1)))
+                            .subscribe().with(rows -> logger.info("Trans is complete!"),
+                                    ex -> logger.error("Trans ex:", ex));
                     // end trans scope
                 }).drainHandler(() -> {
                 }).closeHandler(() -> {
