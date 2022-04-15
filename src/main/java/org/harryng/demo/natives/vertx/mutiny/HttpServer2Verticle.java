@@ -141,10 +141,10 @@ public class HttpServer2Verticle extends AbstractVerticle {
                             dbConnector.withTransaction(sqlConnection -> {
                                                 var result = sqlConnection.preparedQuery(obj.getString("sql"))
                                                         .execute(Tuple.from(params.stream().toList()));
-                                                return result.invoke(rows -> {
+                                                return result.invoke(Unchecked.consumer(rows -> {
                                                     logger.info("Sql Connection is closing!");
-//                                                    dbConnector.releaseSqlConnection(sqlConnection);
-                                                });
+//                                                    throw new Exception("rollback test");
+                                                }));
                                             }
                                     )
                                     .map(rows -> {
